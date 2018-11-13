@@ -33,6 +33,64 @@ def get_lim(x, margin=0.1):
     dx = max - min
     return [min - margin*dx, max + margin*dx]
 
+def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
+                   cvv_col='cvv_normed', max_t_over_delta=4, data_deltas=None,
+                   A=1, beta=0, tDeltaN=None, cmap_name='viridis', fig=None,
+                   alpha_map=None, size_map=None, theory_linewidth=2,
+                   include_lines=False, data_line_alpha=0.2, data_linewidth=1,
+                   BASE_DOT_SIZE=10000):
+    """One pretty version of the Velocity-Velocity correlation plots for the
+    experimental data, with some theory overlaid."""
+    # set up data/plot
+    if fig is None:
+        fig = plt.figure(figsize=(10,10))
+    if len(analytical_deltas) > 0 and tDeltaN is None:
+        raise ValueError("Specify tDeltaN (and A/beta) if you want to plot analytical curves.")
+    if data_deltas is None:
+        data_deltas = np.sort(cvvs[delta_col].unique())
+    # prune data if requested
+    good_ix = np.isin(cvvs[delta_col], data_deltas)
+    t_over_delta = cvvs[t_col]/cvvs[delta_col]
+    good_ix = good_ix & (t_over_delta <= max_t_over_delta)
+    cvvs = cvvs[good_ix]
+    # "aesthetic" marker size and alpha values to make sparser stuff
+    # (i.e. small delta) equally visible
+    max_delta = np.max(data_deltas)
+    cmap = plt.get_cmap(cmap_name)
+    if alpha_map is None:
+        alpha_map = lambda x: 0.4 + 0.3*(1-x/max_delta)
+    if size_map is None:
+        MAGIC_NUM = BASE_DOT_SIZE # chosen to make aesthetic dot sizes
+        size_map = lambda x: MAGIC_NUM/x
+    colors = cmap(cvvs[delta_col]/np.max(cvvs[delta_col]))
+    colors[:,3] = alpha_map(cvvs[delta_col])
+    sc = plt.scatter(cvvs[t_col]/cvvs[delta_col],
+                np.power(cvvs[delta_col], 2-beta)*cvvs[cvv_col]/A,
+                color=colors, s=size_map(cvvs[delta_col]))
+    if include_lines:
+        for delta,data in cvvs.groupby(delta_col):
+            color = cmap(delta/max_delta)[0:3] + (data_line_alpha, )
+            x = data['t']/delta
+            y = np.power(delta, 2 - beta)*data['cvv']/A
+            i = np.argsort(x)
+            plt.plot(x[i], y[i], c=color, linewidth=data_linewidth)
+    plt.xlim([0, max_t_over_delta])
+
+    # plot theoretical fit curves
+    t = np.arange(0.0, 4, 0.001)
+    scaled_theory = lambda t, delta, beta, A, tDeltaN: \
+            2*(vc(t*delta, delta, beta) - calc_vel_corr_fixed(t, delta/tDeltaN, 2*beta))
+    for delta in analytical_deltas:
+        color = cmap(delta/max_delta)
+        plt.plot(t, scaled_theory(t, delta=delta, beta=beta, A=A, tDeltaN=tDeltaN),
+                 color=color, linewidth=theory_linewidth)
+    #     x = np.unique(cvvs[cvvs[:,0] == delta, 1])/delta
+    #     x = x[x <= 4]
+    #     y = testfunc2(x, delta=delta, beta=beta, A=A, tDeltaN=tdeltaN)
+    #     plt.scatter(x, y, color=color, marker='x')
+    return sc
+
+
 def make_all_disps_hist(displacements, centering="mean,std",
                         cmap=None, reverse=False, alpha=1,
                         cmap_log=False, factor_by=None,
