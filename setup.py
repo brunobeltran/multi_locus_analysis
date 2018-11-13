@@ -13,7 +13,7 @@ setup(name='multi_locus_analysis',
       author='Bruno Beltran',
       author_email='brunobeltran0@gmail.com',
       packages=['multi_locus_analysis'],
-      package_data=['vvcf_table.csv'],
+      package_data={'multi_locus_analysis': 'vvcf_table.csv'},
       license='MIT',
       classifiers=[
           'Development Status :: 2 - Pre-Alpha',
