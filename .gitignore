@@ -1,6 +1,9 @@
 # enough temporary data files to exclude by default
 *.csv
 
+# vim
+.*.sw*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
