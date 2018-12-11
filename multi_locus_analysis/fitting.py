@@ -1,4 +1,4 @@
-from .stats import vvc_rescaled_theory
+from .analytical import vvc_rescaled_theory
 
 import numpy as np
 import scipy
@@ -13,7 +13,8 @@ def fit_full_fix_beta(tdelta, A, tDeltaN, beta=0.5):
 
 def get_best_fit_fixed_beta(df, t_col='t', delta_col='delta',
                             cvv_col='cvv_normed',
-                            ste_col='ste', p0=[1, 10], counts_col=None):
+                            ste_col='ste', p0=[1, 10], counts_col=None,
+                            hack=False):
     x = np.stack((df[t_col].values, df[delta_col].values))
     y = df[cvv_col].values
     sigma = df[ste_col].values
@@ -41,5 +42,10 @@ def get_best_fit_fixed_beta(df, t_col='t', delta_col='delta',
             ydata=y, p0=p0, bounds=([0, 1], [1.5, 800]))
     # (A, tDeltaN), pcov = scipy.optimize.curve_fit(fit_full_fix_beta, xdata=x,
     #         ydata=y, p0=p0, sigma=sigma, bounds=([0, 1.5], [10, 1000]))
+    if hack:
+        print(df['rspot_id'].iloc[0])
+        print(df['anum_id'].iloc[0])
+        print(df['dec_id'].iloc[0])
+        print({'A': A, 'tDeltaN': tDeltaN, 'pcov': pcov})
     return {'A': A, 'tDeltaN': tDeltaN, 'pcov': pcov}
 
