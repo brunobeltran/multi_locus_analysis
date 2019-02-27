@@ -79,6 +79,11 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
 
     # plot theoretical fit curves
     t = np.arange(0.0, 4, 0.001)
+    # t = time lag of the correlation
+    # delta = step size used to calculate the velocities
+    # beta = alpha/2
+    # A = "diffusivity" i.e. MSD(delta) = A*delta^alpha
+    # tDeltaN = predicted stress correlation time
     scaled_theory = lambda t, delta, beta, A, tDeltaN: \
             2*(vc(t*delta, delta, beta) - calc_vel_corr_fixed(t, delta/tDeltaN, 2*beta))
     for delta in analytical_deltas:

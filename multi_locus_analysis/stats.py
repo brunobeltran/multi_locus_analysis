@@ -83,8 +83,7 @@ def pos_to_all_vel(trace, xcol='x', ycol='y', zcol=None, framecol='frame id',
     simultaneously.
 
     >>> all_vel = df.groupby(bp.track_columns).apply(lambda df:
-                multi_locus_analysis.pos_to_all_vel(df,
-                xcol='dX', ycol='dY', framecol='tp.n'
+                mla.pos_to_all_vel(df, xcol='dX', ycol='dY', framecol='tp.n'
         ))
 
     """
@@ -231,7 +230,7 @@ def cvv_by_hand_make_usable(cvv_stats, group_cols):
         cvvs['cvv_normed'] =  cvvs['cvv']/cvv0.iloc[0]
         cvvs['ste_normed'] = cvvs['ste']/cvv0.iloc[0]
         return cvvs
-    cvv_stats = cvv_stats.groupby(movie_columns + ['delta']).apply(subtract_t0)
+    cvv_stats = cvv_stats.groupby(group_cols + ['delta']).apply(subtract_t0)
     return cvv_stats
 
 # "combining" functions, post groupby/apply
