@@ -1,0 +1,7 @@
+%matplotlib
+import pandas as pd
+import numpy as np
+import scipy.stats
+
+import multi_locus_analysis as mla
+from multi_locus_analysis.examples import burgess
