@@ -57,16 +57,31 @@ def pivot_loci(df, pivot_cols=['x', 'y', 'z'], spot_col='spot'):
     """
     cols = list(df.columns)
     rs = [re.compile(col+'([0-9]+)') for col in pivot_cols]
-    pivot_cols = [col for col in cols if any([r.match(col) for r in rs])]
+    cols_to_pivot = [col for col in cols if any([r.match(col) for r in rs])]
     # if we are creating the numbered columns
-    if spot_col in cols and len(pivot_cols) == 0:
-        return df
-    # if we are creating a spot column from numbered columns
-    elif spot_col not in cols and len(pivot_cols) > 0:
+    if spot_col in df.index.names and len(cols_to_pivot) == 0 \
+    and all(col in df.columns for col in pivot_cols):
         extra_cols = list(set(cols) - set(pivot_cols))
+        def rename_cols(data):
+            data = data.copy()
+            spot_id = str(data.index.get_level_values(spot_col)[0])
+            for col in df.columns:
+                if col in pivot_cols:
+                    data[col+spot_id] = data[col].copy()
+                del data[col]
+            data.index = data.index.droplevel(spot_col)
+            return data
+        dfs = [rename_cols(data) for _, data in df.groupby(spot_col)]
+        df = df[extra_cols].copy()
+        df.index = df.index.droplevel(spot_col)
+        for data in dfs:
+            df[data.columns] = data
+    # if we are creating a spot column from numbered columns
+    elif spot_col not in df.index.names and len(cols_to_pivot) > 0:
+        extra_cols = list(set(cols) - set(cols_to_pivot))
         # loci id => [existing column names]
         spot_cols = {}
-        for col in pivot_cols:
+        for col in cols_to_pivot:
             for r in rs:
                 if r.match(col):
                     spot_id = int(r.match(col).groups()[0])
