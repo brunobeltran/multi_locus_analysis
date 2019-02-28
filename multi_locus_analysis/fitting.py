@@ -1,3 +1,4 @@
+"""For fitting analytical theory to multi_locus_analysis results"""
 from .analytical import vvc_rescaled_theory
 
 import numpy as np

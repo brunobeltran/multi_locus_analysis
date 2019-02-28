@@ -1,4 +1,4 @@
-""""Interior Windowing" Statistical Corrections
+"""For correcting interior- and exterior-censored data
 
 This module is designed to facilitate working with Markov processes which have
 been observed over finite windows of time.
@@ -14,10 +14,13 @@ of our window).
 For example, suppose you are observing two fluorescent loci that are either in
 contact (A) or not (B). If you measure for 5s, and the loci begin in contact,
 come apart at time t=2s, and rejoin at time t=4s,
-    A A A A A A B B B B B B A A A A
-    | - - | - - | - - | - - | - - | -- | -- | ...
-    |                             |
-t = 0s    1s    2s    3s    4s    5s
+.. raw::
+
+        A A A A A A B B B B B B A A A A
+        | - - | - - | - - | - - | - - | -- | -- | ...
+        |                             |
+    t = 0s    1s    2s    3s    4s    5s
+
 
 we would say that T = 5s, and you measured one "interior" time of length 2s,
 and two exterior times, one of length 2s and one of length 1s (at the start and
@@ -42,7 +45,9 @@ function below.
 A typical workflow is, given an array of interior times, :code:`t`, and an array
 of the window sizes each time was observed within, :code:`w`, is to extract the
 CDF exactly, then optionally convert that to a PDF to display a regular
-histogram::
+histogram
+
+.. code-block:: python
 
     >>> x, cdf = cdf_exact_given_windows(t, w, pad_left_at_x=0)
     >>> xp, pdf = bars_given_cdf(x, cdf)
@@ -72,6 +77,8 @@ import bruno_util
 import bruno_util.random
 from bruno_util import pandas_util
 
+test = 2
+" a test "
 
 ###############{{{
 # simulation code
@@ -302,18 +309,19 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
         value of the states_column during that waiting time, and wait_type is
         one of 'interior', 'left exterior', 'right exterior', 'full exterior',
         depending on what kind of waiting time was observed. See
-        discrete_trajectory_to_wait_times_ for detailed explanation of these
+        :ref:`censor-types` for detailed explanation of these
         categories. The 'wait_bound_low/high' columns contain the
         minimum/maximum possible value of the wait time (resp.), given the
         observations.
-
         The default index is named "rank_order", since it tracks the order,
         zero-indexed in whihc the wait times occured.
 
-    .. _discrete_trajectory_to_wait_times:
+
+    .. _censor-types:
 
     Notes
     -----
+
     the following types of wait times are of interest to us
 
     1) *interior* censored times: whenever you are observing a switching
@@ -414,7 +422,7 @@ def cdf_exact(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
         the eCDF equals zero. Use mean inter-data spacing to automatically
         generate an aesthetically reasonable such point.
     pad_left_at_x : bool
-        Same as :param:`auto_pad_left`, but specify the point at which to add
+        Same as ``auto_pad_left``, but specify the point at which to add
         the leftmost point.
 
     Returns
@@ -427,7 +435,7 @@ def cdf_exact(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
 
     Notes
     -----
-    If using :param:`times_allowed`, the *pad_left* parameters are redundant.
+    If using ``times_allowed``, the *pad_left* parameters are redundant.
     """
     y = np.array(y)
     y.sort()
@@ -476,7 +484,7 @@ def cdf_exact_given_windows(times, window_sizes, times_allowed=None,
         the eCDF equals zero. Use mean inter-data spacing to automatically
         generate an aesthetically reasonable such point.
     pad_left_at_x : bool
-        Same as :param:`auto_pad_left`, but specify the point at which to add
+        Same as ``auto_pad_left``, but specify the point at which to add
         the leftmost point.
     window_func : function
         The function used to reweight the observations. The default is
@@ -494,7 +502,7 @@ def cdf_exact_given_windows(times, window_sizes, times_allowed=None,
 
     Notes
     -----
-    If using :param:`times_allowed`, the *pad_left* parameters are redundant.
+    If using ``times_allowed``, the *pad_left* parameters are redundant.
     """
     y = times
     ymax = window_sizes
@@ -595,8 +603,8 @@ def bootstrapped_pmf_confint(n_samples, alpha, x, cdf, num_bootstraps=1000,
     would lie between with probability 1-alpha if it had a true CDF given by the
     (continuous, linear interpolation of the) empircal CDF.
 
-    Inputs
-    ------
+    Parameters
+    ----------
     n_samples : int
         How many samples the secondary measurement has. This is the number of
         data points drawn in each bootstrap iteration.
@@ -614,8 +622,8 @@ def bootstrapped_pmf_confint(n_samples, alpha, x, cdf, num_bootstraps=1000,
         be used to visually assert pointwise statistical significance at the
         requested alpha.
 
-    Output
-    ------
+    Returns
+    -------
     confint : (2,N-1) array_like
         Upper and lower bounds of the confidence interval calculated.
     """

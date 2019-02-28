@@ -24,10 +24,10 @@ Data columns
 
 ``locus``
     a designator of which locus was tagged. ``HET5`` corresponds to a
-    heterozygous cross of the URA3 and LYS2 tags.
+    heterozygous cross of the ``URA3`` and ``LYS2`` tags.
 
 ``genotype``
-    ``WT`` for wildtype or ``SP`` for :math:`\Delta`*spo11*.
+    ``WT`` for wildtype or ``SP`` for :math:`\Delta`\ *spo11*.
 
 ``exp.rep``
     an unique integer for each experimental replicate (only unique if

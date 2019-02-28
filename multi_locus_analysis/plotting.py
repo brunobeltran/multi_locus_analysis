@@ -1,3 +1,4 @@
+"""For plotting multi_locus_analysis results"""
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -107,12 +108,18 @@ def make_all_disps_hist(displacements, centering="mean,std",
                         xbins=None, frames_to_sec=None, yscale='log',
                         omit_title=True):
     """Make a manual factor plot of displacement histograms.
-    Inputs:
-        factor_by - list of level numbers into the displacements heirarchical index
-                    telling which set of levels to factor on.
-        centering - controls howto center the data so that it fits on a signle
-                    plot
-        reverse - True plots smallest deltas on top, False the opposite
+
+    Parameters
+    ----------
+    factor_by : List<str>
+        list of level numbers into the displacements heirarchical index telling
+        which set of levels to factor on.
+    centering : str
+        controls how to center the data so that it fits on a single plot. one
+        of "none", "mean", "mean,std" for nothing, mean subtraction, and mean
+        subtraction+dividing by std deviation (respectively).
+    reverse : bool
+        True plots smallest deltas on top, False the opposite
     """
     if xlim is None and centering != None:
         xlim = [-7.5, 7.5] if yscale == 'log' else [-4, 4]

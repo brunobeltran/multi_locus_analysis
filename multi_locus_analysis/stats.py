@@ -1,3 +1,26 @@
+r"""For computing statistics of particle motions
+
+When dealing with trajectory data, all the common readouts can be thought of as
+moments of the trajectory with different time lags or discrete derivatives
+applied.
+
+More precisely, suppose you have trajectory data :math:`X_i(t_k)`, then
+we define the discrete velocity (the first discrete derivative of the particle
+as :math:`V_i^\delta(t_k) = X_i(t_k + \delta) - X_i(t_k)`
+and the discrete relative velocities
+:math:`V_{ij}^\delta(t_k) = X_{ij}(t_k + \delta) - X_{ij}(t_k)`
+where :math:`X_{ij}` is the distance between the points :math:`i` and :math:`j`.
+This module simply helps quickly calculate moments of the :math:`V^\delta(t)`.
+
+For example, the ensemble MSD is simply :math:`E_i[(V_i^\delta(0))^2]` as a
+function of :math:`\delta`, where :math:`E_\chi[\cdot]` indicates the average is
+taken over the variable :math:`\chi`. The time-averaged MSD for a single
+particle on the other hand is given by :math:`E_t[(V_i^\delta(t))^2]`.
+
+This module provides a simple set of functions for easily extracting the moment
+of any product of any derivatives with any combination of time lags of a set of
+trajectories, :math:`X_i(t_k)`.
+"""
 import numpy as np
 import pandas as pd
 import scipy
@@ -20,11 +43,13 @@ def autocorr_1(df, xcol, tcol=None, **kwargs):
 
 def corr_prod(df, xcol, tcol=None, max_dt=None, max_t_over_delta=4,
               allowed_dts=None, t_step=None):
-    """Calculates the time averaged autocorraltion correlation over a column,
+    r"""Calculates the time averaged autocorraltion correlation over a column,
     with an optional time column.
 
     The time average can be written
-    C_X(t) = E_\tau[X_{\tau + t}X_\tau]
+    .. math::
+
+        C_X(t) = E_\tau[X_{\tau + t}X_\tau]
     """
     x = df[xcol]
     if tcol is not None:
@@ -76,7 +101,7 @@ def traj_to_msds(traj, xcol='x', ycol='y', framecol='frame id'):
                                'delta': dfts[pos_ix]})
     return displacements
 
-def pos_to_all_vel(trace, xcol='x', ycol='y', zcol=None, framecol='frame id',
+def pos_to_all_vel(trace, xcol='x', ycol='y', zcol=None, framecol='i',
                    delta=None, delta_max=None, deltas=None,
                    absolute_time=None, force_independence=False):
     """For getting displacement distributions for all possible deltas
@@ -192,18 +217,20 @@ def combine_moments(data):
     combines the values to get overall moments for full dataset.
 
     Example:
-    ```python
-    grouped_stats = df.groupby(['experiment']).apply(lp.moments)
-    overall_stats = grouped_stats.groupby(level=0, axis=1).apply(lp.combine_moments).unstack()
-    ```
+
+    .. code-block:: python
+
+        grouped_stats = df.groupby(['experiment']).apply(lp.moments)
+        overall_stats = grouped_stats.groupby(level=0, axis=1).apply(lp.combine_moments).unstack()
 
     Example:
-    ```python
-    def grouper(g):
-        return g.groupby(level=0, axis=1).apply(lp.combine_moments).unstack()
-    grouped_stats[new_col] = make_interesting_value(grouped_stats)
-    overall_stats = df.groupby(new_col).apply(grouper)
-    ```
+
+    .. code-block:: python
+
+        def grouper(g):
+            return g.groupby(level=0, axis=1).apply(lp.combine_moments).unstack()
+        grouped_stats[new_col] = make_interesting_value(grouped_stats)
+        overall_stats = df.groupby(new_col).apply(grouper)
     """
     # get top level column multi-index name if it exists
     if data.columns.names[0] != 'Moment':

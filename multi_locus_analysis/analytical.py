@@ -1,3 +1,4 @@
+"""For computing analytical results relevant to diffusing loci"""
 import numpy as np
 from scipy.signal import savgol_filter, savgol_coeffs
 
@@ -57,7 +58,7 @@ def frac_msd_confined(t, alpha, D, Cr, t0, t1):
     -------
     this function is pretty suboptimal, since only enforcing
     :math:`C^{(2)}` at the right endpoitn of the spline means that the curve
-    will go slightly above the max Cr before coming back down. 
+    will go slightly above the max Cr before coming back down.
 
     in principle, we should recalculate these coefficients to make a better
     fit, but I have lab meeting right now.
