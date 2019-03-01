@@ -286,7 +286,7 @@ def groupby_apply_efficient(df, group_cols, apply_fun, n_between_gc=50,
     return pd.concat(output_df, ignore_index=True)
 
 def vels_to_cvvs_by_hand(vels, groups, file_name, framecol='ti', dxcol='vx',
-                            dycol='vy', max_t_over_delta=None, max_dt=None,
+                            dycol='vy', dzcol=None, max_t_over_delta=None, max_dt=None,
                             allowed_dts=None, deltas_of_interest=None,
                             include_group=True):
     """should be passed a velocities dataframe (as from pos_to_all_vel.
@@ -314,8 +314,12 @@ def vels_to_cvvs_by_hand(vels, groups, file_name, framecol='ti', dxcol='vx',
             t = vel[framecol]
             dx = vel[dxcol]
             dy = vel[dycol]
+            if dzcol is not None:
+                dz = vel[dzcol]
+                cvv = dx[None,:]*dx[:,None] + dy[None,:]*dy[:,None] + dz[None,:]*dz[:,None]
             # cvv[i,j] = dx[i]*dx[j] + dy[i]*dy[j], so all n^2 dot products
-            cvv = dx[None,:]*dx[:,None] + dy[None,:]*dy[:,None]
+            else:
+                cvv = dx[None,:]*dx[:,None] + dy[None,:]*dy[:,None]
             tau = t[None,:] - np.zeros_like(t[:,None])
             dts = t[None,:] - t[:,None]
             good_ix = dts >= 0
