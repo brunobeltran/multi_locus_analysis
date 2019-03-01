@@ -36,9 +36,10 @@ def get_lim(x, margin=0.1):
 
 def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
                    cvv_col='cvv_normed', max_t_over_delta=4, data_deltas=None,
-                   A=1, beta=0, tDeltaN=None, cmap_name='viridis', fig=None,
+                   A=1, beta=0.5, tDeltaN=None, cmap_name='viridis', fig=None,
                    alpha_map=None, size_map=None, theory_linewidth=2,
-                   include_lines=False, include_points=True, data_line_alpha=0.2, data_linewidth=1,
+                   include_errorbar=True, include_lines=False,
+                   include_points=False, data_line_alpha=1, data_linewidth=1,
                    BASE_DOT_SIZE=10000):
     """One pretty version of the Velocity-Velocity correlation plots for the
     experimental data, with some theory overlaid."""
@@ -58,6 +59,7 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
     # (i.e. small delta) equally visible
     max_delta = np.max(cvvs[delta_col])
     cmap = plt.get_cmap(cmap_name)
+    cnorm = mpl.colors.Normalize(vmin=0, vmax=max_delta)
     if alpha_map is None:
         alpha_map = lambda x: 0.4 + 0.3*(1-x/max_delta)**2
     if size_map is None:
@@ -69,6 +71,13 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
         plt.scatter(cvvs[t_col]/cvvs[delta_col],
                     cvvs[cvv_col]/A,
                     color=colors, s=size_map(cvvs[delta_col]))
+    if include_errorbar:
+        for delta,data in cvvs.groupby(delta_col):
+            td = data['t']/data['delta']
+            i = np.argsort(td)
+            plt.errorbar(td.iloc[i], data['cvv_normed'].iloc[i],
+                    data['ste_normed'].iloc[i], c=cmap(cnorm(delta)),
+                    linewidth=data_linewidth, alpha=data_line_alpha)
     if include_lines:
         for delta,data in cvvs.groupby(delta_col):
             color = cmap(delta/max_delta)[0:3] + (data_line_alpha, )
@@ -77,6 +86,12 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
             i = np.argsort(x)
             plt.plot(x.iloc[i], y.iloc[i], c=color, linewidth=data_linewidth)
     plt.xlim([0, max_t_over_delta])
+    sm = mpl.cm.ScalarMappable(cnorm, cmap)
+    sm.set_array([])
+    cbar = plt.colorbar(sm)
+    cbar.set_label('$\delta$')
+    plt.xlabel('$t/\delta$')
+    plt.ylabel('Normalized Autocorrelation\n$<V_{ij}^\delta(t) \cdot{} V_{ij}^\delta(0)>/<V_{ij}^\delta(0)>$')
 
     # plot theoretical fit curves
     t = np.arange(0.0, 4, 0.001)
