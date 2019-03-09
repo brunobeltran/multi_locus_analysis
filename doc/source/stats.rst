@@ -23,7 +23,7 @@ Tutorial
 
     Like the rest of :mod:`multi_locus_analysis`, these functions are optimized
     for use with long-form :mod:`pandas` DataFrames. The following tutorial
-    assumes that your data set is small enough for approximately :math:`n^4`
+    assumes that your data set is small enough for approximately :math:`n^3`
     data points to fit in memory. In order to take up only linear space, simply
     compose the desired functions instead of applying them one-by-one (which
     keeps around unnecessary intermediates).
@@ -191,10 +191,13 @@ function to a large dataset spicy. Therefore, we provide convenience functions
 :func:`vels_to_cvvs_by_hand` and :func:`vvc_stats_by_hand` to first write out
 all these products and then take the appropriate averages (respectively).
 
+If we wanted to use them on the above velocities, we would simply run:
+
 .. warning::
+
     The following creates a temporary file of approximately 2.1GB.
 
-If we wanted to use them on the above velocities, we would simply run:
+..  new code block
 
     >>> mla.stats.vels_to_cvvs_by_hand(d_vels, ['meiosis'], 'vvs.csv',
     >>>                                max_t_over_delta=4)
