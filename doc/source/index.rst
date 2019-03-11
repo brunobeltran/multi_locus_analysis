@@ -30,8 +30,8 @@ example plots, see the other tutorials.
 
     Trajectory Statistics <stats>
     Waiting Times <finite_window>
-    Plotting <plots>
     Analytical Theory <theory>
+    Plotting <plots>
     API reference & Example data sets <api>
 
 Indices and tables

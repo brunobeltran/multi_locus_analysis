@@ -161,6 +161,7 @@ These MSCDs can be simply plotted via
 .. plot::
     :context:
 
+    >>> plt.figure(figsize=[4, 3])
     >>> for label, data in mscds_per_stage.groupby('meiosis'):
     >>>     data = data.reset_index()
     >>>     data = data[data['delta'] > 0] # for log-log scale prettiness

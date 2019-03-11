@@ -9,7 +9,7 @@ Here, we show some best practices for comparing MSDs, displacement
 distributions, and velocity correlations to the theory of diffusing molecules.
 
 The literature contains many good reviews on these topics, so we cover
-often overlooked pitfalls.
+only some often overlooked pitfalls.
 
 First, we discuss the :ref:`effects of confinement <analytical-msds>` on
 MSDs, especially on extracting diffusivity and the subdiffusivity
