@@ -2,9 +2,20 @@ dist: xenial
 language: python
 python: 3.7.2
 install:
-  - pip install -r requirements_dev.txt
-  - pip install -e .
+- pip install -r requirements_dev.txt
+- pip install -e .
 script:
-  - pytest
-  - cd doc
-  - make html
+- pytest
+- cd doc
+- make html
+deploy:
+  provider: pypi
+  user: bbeltr1
+  on:
+    tags: true
+    branch: master
+    repo: brunobeltran/multi_locus_analysis
+  skip_existing: true
+  password:
+    secure: CFEDzKq3l5250y1piin+/WiaTlu8sXbpt1cPbfjfHlQG3+lwbnR3O7xnNzypl3MbFREE4rzOkSJSMai05Hwvu4LfIBm+m4vux3KEsm0K6KHrNusKqePJ6B4vKsRG7ue0Ns+VW3tAqlUYFIhRZMBEaS/ocPHgg33O+N3gFXUc17BCJGjQI8GD1KQS2Tx+hLhx3cTtq7Aii00Z4MYJUjkX8JMM/QOcweQwKQt+DcqRV+DhQVf+ClmwM1C2XEySdqugkeamSOX7GUDHGYoSTQ7yoiZHD+OPnRISoE3FIU0WELMjTP9P3Fnz3XKcLlvWCCebBAd7xeljuMWvYatYJh5EJeGsRdPdWZJKLzMTpPF/UIj1Mu66dcGkKf3gNYxjhseagsKg9XIUo/pU0n65h0i027gwNcKN07ZQDjusW4m9gR+ghqVTxn80uw54Be1UZ0mVvWk5LQIUDupoIsQ/sp2qlHhLHQ+eanrvtE1oLJaJmOn0WpuS1mpstlXyNZAlHszsoxFF3hLpZk2ImdZGSZMG3zzSJpzP0FxUlD9rsGNrfgfs0/l01TP6vpl4J48o59a7xr+rPnVpT89FGyJVhoX1aE+1+Q2BAe/sNlGfgI6a9iCsGHEKwdhN6ge6q8HDbCOf21gau4HcCcep5ZQ4AVw3XakrjtzLCARrIp5ERR83udg=
+

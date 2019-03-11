@@ -1,0 +1,2 @@
+include versioneer.py
+include multi_locus_analysis/_version.py

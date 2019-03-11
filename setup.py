@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import versioneer
 from setuptools import setup
 
 def readme():
@@ -7,7 +8,8 @@ def readme():
         return f.read()
 
 setup(name='multi_locus_analysis',
-      version='1.0.0',
+      version=versioneer.get_version(),
+      cmdclass=versioneer.get_cmdclass(),
       description='Utilities for analyzing particle trajectories',
       long_description=readme(),
       author='Bruno Beltran',
