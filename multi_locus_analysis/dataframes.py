@@ -1,4 +1,5 @@
 import re
+import pandas as pd
 
 def pivot_loci(df, pivot_cols=['x', 'y', 'z'], spot_col='spot'):
     """Move between "long" and "short" forms for the spot id column.
