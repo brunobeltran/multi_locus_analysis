@@ -14,7 +14,8 @@ of our window).
 For example, suppose you are observing two fluorescent loci that are either in
 contact (A) or not (B). If you measure for 5s, and the loci begin in contact,
 come apart at time t=2s, and rejoin at time t=4s,
-.. raw::
+
+::
 
         A A A A A A B B B B B B A A A A
         | - - | - - | - - | - - | - - | -- | -- | ...
@@ -77,30 +78,40 @@ import bruno_util
 import bruno_util.random
 from bruno_util import pandas_util
 
-test = 2
-" a test "
-
 ###############{{{
 # simulation code
 
 @bruno_util.random.strong_default_seed
-def shortcut_finite_window_sim_2(rands, means, window_size, num_replicates=1,
-                                 seed=None, random_state=None):
-    """Simulate a two-state system switching between states 0 and 1 with
-    waiting times that can be sampled by rands[0] and rands[1], and whose
+def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
+                   seed=None, random_state=None):
+    """Simulate a two-state system switching between states A and B.
+
+    In addition to functions that can generate random waiting times for each
+    state, this "fast" version of the code requires the
     average waiting times are are means[0], means[1], respectively.
+
+    .. warning::
+
+        apparently, :func:`bruno_util.random.strong_default_seed` is broken (or
+        this function is) because passing a seed does not make the output
+        reproducible.
 
     Parameters
     ----------
     rands : (2,) List[scipy.stats.rv_continuous]
-        Callable that takes "random_state" and "size" kwargs that accept
-        a np.random.RandomState seed and a tuple specifying array sizes, resp.
+        One of the random variables defined in :mod:`scipy.stats`.
+        Alternatively, any callable that takes `random_state` and `size`
+        kwargs. `random_state` should accept a :class:`np.random.RandomState`
+        seed. `size` will be a tuple specifying output shape of random number
+        array requested.
     means : (2,) array_like
         average waiting times for each of the states
     window_size : float
         the width of the window over which the observation takes place
     num_replicates : int
-        number of times to run the simulation
+        number of times to run the simulation, default to 1
+    states : (2,) array_like
+        the "names" of each state, default to [0,1]
     seed : np.random.RandomState
         state to start the simulation with
 
@@ -108,8 +119,8 @@ def shortcut_finite_window_sim_2(rands, means, window_size, num_replicates=1,
     -------
     df : pd.DataFrame
         The start/end times of each waiting time simulated. This data frame has
-        columns=['replicate', 'state', 'start_time', 'end_time',
-        'window_start', 'window_end'].
+        `columns=['replicate', 'state', 'start_time', 'end_time',
+        'window_start', 'window_end']`.
 
     Notes
     -----
@@ -124,9 +135,9 @@ def shortcut_finite_window_sim_2(rands, means, window_size, num_replicates=1,
     We use this fact here to speed up correct simulation of time-homogenous
     windows by directly simulating only the waiting times within the windows
     instead of also simulating a long run of "pre-equilibrating" waiting times
-    some offset before the window, as in explicit_finite_window_sim_2.
+    some offset before the window, as in :func:`ab_window`.
     """
-    # np.concatenate can't handle concatenating nothing into nothing, so we
+    # np.concatenate can't handle concatenating nothing into nothing, so...
     if num_replicates <= 0:
         return pd.DataFrame(columns=['replicate', 'state', 'start_time',
                                      'end_time', 'window_start', 'window_end'])
@@ -135,6 +146,7 @@ def shortcut_finite_window_sim_2(rands, means, window_size, num_replicates=1,
     rands = [bruno_util.random.make_pool(rand, pool_size_guess, random_state=random_state)
              for rand in rands]
 
+    state_names = states
     start_times = []
     end_times = []
     states = []
@@ -171,7 +183,7 @@ def shortcut_finite_window_sim_2(rands, means, window_size, num_replicates=1,
     start_times = np.concatenate([np.array(ts) for ts in start_times])
     end_times = np.concatenate([np.array(ts) for ts in end_times])
     replicate_ids = np.concatenate([i*np.ones_like(ts) for i, ts in enumerate(states)])
-    states = np.concatenate([np.array(ss) for ss in states])
+    states = np.concatenate([np.array(state_names[ss]) for ss in states])
     df = pd.DataFrame.from_dict({'replicate': replicate_ids, 'state': states,
                                  'start_time': start_times, 'end_time': end_times})
     df['window_start'] = 0
@@ -179,8 +191,8 @@ def shortcut_finite_window_sim_2(rands, means, window_size, num_replicates=1,
     return df
 
 @bruno_util.random.strong_default_seed
-def explicit_finite_window_sim_2(rands, window_size, offset, num_replicates=1,
-                        seed=None, random_state=None):
+def ab_window(rands, window_size, offset, num_replicates=1,
+              seed=None, random_state=None):
     """Simulate a two-state system switching between states 0 and 1 with
     waiting times that can be sampled by rands[0] and rands[1], and whose
     average waiting times are are means[0], means[1], respectively. Emulate
@@ -266,7 +278,8 @@ def explicit_finite_window_sim_2(rands, window_size, offset, num_replicates=1,
 ###############{{{
 # keep in dataframe functions
 
-def state_changes_to_wait_times(data, start_times_col, state_col):
+def state_changes_to_wait_times(traj, start_times_col='start_time',
+                                state_col='state'):
     """Converts a Series of state change times into a dataframe containing each
     wait time, with its start, end, rank order, and the state it's leaving.
 
@@ -274,6 +287,122 @@ def state_changes_to_wait_times(data, start_times_col, state_col):
     discrete time points (on a grid), so the wait times it returns are
     exact."""
     pass
+
+traj_to_waits = state_changes_to_wait_times
+
+def state_changes_to_trajectory(traj, times, state_col='state',
+                                start_times_col='start_time',
+                                end_times_col=None):
+    """Converts a series of state change times into a Series containing
+    observations at the times requested. The times become the index.
+
+    Parameters
+    ----------
+    times : (N,) array_like
+        times at which to "measure" what state we're in to make the new
+        trajectories.
+    traj : pd.DataFrame
+        should have `state_col` and `start_times_col` columns. the values of
+        `state_col` will be copied over verbatim.
+    state_col : string
+        name of column containing the state being transitioned out of for each
+        measurement in `traj`.
+    start_times_col : string
+        name of column containing times at which `traj` changed state
+    end_times_col : (optional) string
+        by default, the function assumes that times after the last start time
+        are in the same state. if passed, this column is used to determine at
+        what time the last state "finished". times after this will be labeled
+        as NaN.
+
+    Returns
+    -------
+    movie : pd.Series
+        Series defining the "movie" with frames taken at `times` that
+        simply measures what state `traj` is in at each frame. index is
+        `times`, `state_col` is used to name the Series.
+
+    Interval
+    --------
+
+    A start time means that if we observe at that time, the state transition
+    will have already happened (right-continuity). This is confusing in
+    words, but simple to see in an example (see the example below).
+
+    Examples
+    --------
+
+    For the DataFrame
+
+        >>> df = pd.DataFrame([['A',  -1, 0.1], ['B', 0.1, 1.0]],
+        >>>     columns=['state', 'start_time', 'end_time'])
+
+    the discretization into tenths of seconds would give
+
+        >>> state_changes_to_trajectory(df, times=np.linspace(0, 1, 11),
+        >>>     end_times_col='end_time')
+        t
+        0.0      A
+        0.1      B
+        0.2      B
+        0.3      B
+        0.4      B
+        0.5      B
+        0.6      B
+        0.7      B
+        0.8      B
+        0.9      B
+        1.0    NaN
+        Name: state, dtype: object
+
+    Notice in particular how at 0.1, the state is already 'B'. Similarly at
+    time 1.0 the state is already "unknown". This is what is meant by the Notes
+    section above.
+
+    If the `end_times_col` argument is omitted, then the last observed state is
+    assumed to continue for all `times` requested from then on:
+
+        >>> state_changes_to_trajectory(df, times=np.linspace(0, 1, 11))
+        t
+        0.0    A
+        0.1    B
+        0.2    B
+        0.3    B
+        0.4    B
+        0.5    B
+        0.6    B
+        0.7    B
+        0.8    B
+        0.9    B
+        1.0    B
+        Name: state, dtype: object
+
+
+    """
+    if len(traj) <= 0:
+        raise ValueError('Need a non-empty trajectory, otherwise how will I know what the possible states are?')
+    times = np.sort(np.array(times))
+    traj.sort_values(start_times_col)
+    if times[0] < traj[start_times_col].iloc[0]:
+        raise ValueError('Requested a time before any measurements were made!')
+    # initialize in a random state to get dtype correct
+    movie = pd.Series(traj[state_col].iloc[0], index=times)
+    i = 0
+    i_max = len(traj)
+    for time in times:
+        while i < i_max and traj[start_times_col].iloc[i] <= time:
+            i += 1
+        movie.loc[time] = traj[state_col].iloc[i-1]
+    if end_times_col is not None:
+        last_observed_time = traj[end_times_col].iloc[-1]
+        if last_observed_time <= times[-1]:
+            first_bad_time = np.argmax(last_observed_time <= times)
+            movie.loc[times[first_bad_time]:] = np.nan
+    movie.name = state_col
+    movie.index.name = 't'
+    return movie
+
+traj_to_movie = state_changes_to_trajectory
 
 def discrete_trajectory_to_wait_times(data, time_column, states_column):
     """Converts a discrete trajectory to a dataframe containing each wait time,
@@ -309,15 +438,16 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
         value of the states_column during that waiting time, and wait_type is
         one of 'interior', 'left exterior', 'right exterior', 'full exterior',
         depending on what kind of waiting time was observed. See
-        :ref:`censor-types` for detailed explanation of these
+        the `Notes` section below for detailed explanation of these
         categories. The 'wait_bound_low/high' columns contain the
         minimum/maximum possible value of the wait time (resp.), given the
         observations.
         The default index is named "rank_order", since it tracks the order,
         zero-indexed in whihc the wait times occured.
 
+    .. note::
 
-    .. _censor-types:
+        wait_bound_* not yet implemented
 
     Notes
     -----
@@ -388,6 +518,8 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
     df['window_size'] = valid_time_window
     return df
 
+movie_to_waits = discrete_trajectory_to_wait_times
+
 # end keep in dataframe functions
 ###############}}}
 
@@ -396,8 +528,8 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
 
 def abs_norm_rvs_factory(*args, **kwargs):
     n = scipy.stats.norm(*args, **kwargs)
-    def rvs(*args, **kwargs):
-        return np.abs(n.rvs(*args, **kwargs))
+    def rvs(*a, **k):
+        return np.abs(n.rvs(*a, **k))
     return rvs
 
 # end useful aliases for random variables
@@ -406,7 +538,7 @@ def abs_norm_rvs_factory(*args, **kwargs):
 
 ###############{{{
 # statistical window corrections
-def cdf_exact(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
+def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
     """Compute empirical cumulative distribution function (eCDF) from data.
 
     Parameters
@@ -460,9 +592,7 @@ def cdf_exact(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
         cdf = np.insert(cdf, 0, 0)
     return x, cdf
 
-exact_cdf = cdf_exact
-
-def cdf_exact_given_windows(times, window_sizes, times_allowed=None,
+def ecdf_windowed(times, window_sizes, times_allowed=None,
         auto_pad_left=None, pad_left_at_x=None, window_func=None):
     """Compute empirical cumulative distribution function (eCDF) from data
     taken within a finite observation interval.
@@ -541,7 +671,7 @@ def cdf_exact_given_windows(times, window_sizes, times_allowed=None,
         cdf = np.insert(cdf, 0, 0)
     return x, cdf
 
-def double_up(x):
+def _double_up(x):
     """[1,2,3] to [1,1,2,2,3,3]"""
     return np.tile(x, (2, 1)).T.flatten()
 
@@ -552,7 +682,7 @@ def bars_given_cdf(x, cdf):
         raise ValueError('Values in x repeated!')
     pmf = np.diff(cdf)/np.diff(x)
     # tested by inspection
-    return double_up(x)[1:-1], double_up(pmf)
+    return _double_up(x)[1:-1], _double_up(pmf)
 
 def simultaneous_confint_from_cdf(alpha, n_samples, x, cdf):
     return binom.multinomial_proportions_confint(n_samples*np.diff(cdf),
@@ -575,8 +705,8 @@ def bars_given_confint(x, confint):
     if np.any(np.diff(x) == 0):
         raise ValueError('Values in x repeated!')
     confint = confint/np.tile(np.diff(x), (2, 1)).T
-    conf_bar_y = np.stack((double_up(confint[:,0]), double_up(confint[:,1])))
-    return double_up(x)[1:-1], conf_bar_y
+    conf_bar_y = np.stack((_double_up(confint[:,0]), _double_up(confint[:,1])))
+    return _double_up(x)[1:-1], conf_bar_y
 
 def sample_from_cdf(n, x, cdf):
     """Takes a sample count, cdf in the form x,cdf, like from output of
