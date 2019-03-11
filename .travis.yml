@@ -6,8 +6,6 @@ install:
 - pip install -e .
 script:
 - pytest
-- cd doc
-- make html
 deploy:
   provider: pypi
   user: bbeltr1
