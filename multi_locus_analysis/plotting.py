@@ -58,9 +58,9 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
     sm = mpl.cm.ScalarMappable(cnorm, cmap)
     sm.set_array([])
     cbar = plt.colorbar(sm)
-    cbar.set_label('$\delta$')
-    plt.xlabel('$t/\delta$')
-    plt.ylabel('Normalized Autocorrelation\n$<V_{ij}^\delta(t) \cdot{} V_{ij}^\delta(0)>/<V_{ij}^\delta(0)>$')
+    cbar.set_label(r'$\delta$')
+    plt.xlabel(r'$t/\delta$')
+    plt.ylabel(r'Normalized Autocorrelation\n$<V_{ij}^\delta(t) \cdot{} V_{ij}^\delta(0)>/<V_{ij}^\delta(0)>$')
 
     # plot theoretical fit curves
     t = np.arange(0.0, 4, 0.001)
@@ -179,9 +179,9 @@ def make_all_disps_hist(displacements, centering="mean,std",
         if cbar:
             cbar = plt.colorbar(sm)
             if frames_to_sec is None:
-                cbar.ax.set_ylabel('$\delta$ (frames)')
+                cbar.ax.set_ylabel(r'$\delta$ (frames)')
             else:
-                cbar.ax.set_ylabel('$\delta$ (s)')
+                cbar.ax.set_ylabel(r'$\delta$ (s)')
         if include_theory_data:
             if normal:
                 ax.hist(np.random.standard_normal((to_plot.groupby('delta_abs').count().max()[vxcol],1)),
@@ -198,7 +198,7 @@ def make_all_disps_hist(displacements, centering="mean,std",
                 ax.plot(xbins, scipy.stats.norm.pdf(xbins), 'k-.')
             if laplace:
                 ax.plot(xbins, scipy.stats.laplace.pdf(xbins), 'k-.')
-        plt.xlabel('$v_x$')
+        plt.xlabel(r'$v_x$')
         if xlim is not None:
             plt.xlim(xlim)
         if ylim is not None:
