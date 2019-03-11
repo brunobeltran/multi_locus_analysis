@@ -146,7 +146,7 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
     rands = [bruno_util.random.make_pool(rand, pool_size_guess, random_state=random_state)
              for rand in rands]
 
-    state_names = states
+    state_names = np.array(states)
     start_times = []
     end_times = []
     states = []
@@ -183,7 +183,8 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
     start_times = np.concatenate([np.array(ts) for ts in start_times])
     end_times = np.concatenate([np.array(ts) for ts in end_times])
     replicate_ids = np.concatenate([i*np.ones_like(ts) for i, ts in enumerate(states)])
-    states = np.concatenate([np.array(state_names[ss]) for ss in states])
+    states = np.concatenate([np.array(ss) for ss in states])
+    states = state_names[states]
     df = pd.DataFrame.from_dict({'replicate': replicate_ids, 'state': states,
                                  'start_time': start_times, 'end_time': end_times})
     df['window_start'] = 0
