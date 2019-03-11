@@ -173,7 +173,7 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
         start_times[-1].append(t0)
         states[-1].append(sim_state)
         sim_state = 1 - sim_state # switch between 0 and 1
-        while t < window_size:
+        while t <= window_size:
             end_times[-1].append(t)
             start_times[-1].append(t)
             states[-1].append(sim_state)
@@ -254,7 +254,7 @@ def ab_window(rands, window_size, offset, num_replicates=1,
             r = rands[sim_state]()
         states[i].append(sim_state)
         start_times[i].append(t)
-        while t + r < window_size:
+        while t + r <= window_size:
             t += r
             end_times[i].append(t)
             sim_state += 1
