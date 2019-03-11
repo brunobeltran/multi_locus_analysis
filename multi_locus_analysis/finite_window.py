@@ -706,3 +706,4 @@ def bootstrapped_pmf_from_waits_bars(times, window_sizes, times_allowed,
 
 # end statistical window corrections
 ###############}}}
+

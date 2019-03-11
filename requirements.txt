@@ -1,9 +1,1 @@
-bruno_util
-numpy
-pandas
-matplotlib
-seaborn
-scipy
-statsmodels
-# really want to roll my own Kaplan Meier code, but for now
-lifelines
+.
