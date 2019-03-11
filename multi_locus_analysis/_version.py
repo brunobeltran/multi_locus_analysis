@@ -41,8 +41,8 @@ def get_config():
     cfg = VersioneerConfig()
     cfg.VCS = "git"
     cfg.style = "pep440"
-    cfg.tag_prefix = "'mla-v'"
-    cfg.parentdir_prefix = "'mla-v'"
+    cfg.tag_prefix = "mla-v"
+    cfg.parentdir_prefix = "mla-v"
     cfg.versionfile_source = "multi_locus_analysis/_version.py"
     cfg.verbose = False
     return cfg
