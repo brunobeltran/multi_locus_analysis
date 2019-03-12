@@ -30,17 +30,16 @@ end of the window, respectively).
 When histogramming these times, we must apply a statistical correction to the
 final histogram weights due to the effects of the finite observation window.
 
-The distribution of the exterior times $f_E(t)$ is exactly equal to the survival
-function of the actual distribution $S(t) = 1 - \int_0^t f(s) ds$ normalized to
-equal one over the observation interval.
-No functions are currently included
-that leverage this, since extracting information from the survival function is
-likely only worth it if a large fraction of your observations are exterior
-times.
+The distribution of the exterior times :math:`f_E(t)` is exactly equal to the
+survival function of the actual distribution :math:`S(t) = 1 - \int_0^t f(s)
+ds` normalized to equal one over the observation interval.
+No functions are currently included that leverage this, since extracting
+information from the survival function is likely only worth it if a large
+fraction of your observations are exterior times.
 
-On the other hand, the interior times distribution is given by
-$f_I(t) = f(t)(T - t)$ for $t\in[0,T]$. In order to plot the actual shape of
-$f(t)$ with this biasing removed, we provide the cdf_exact_given_windows
+On the other hand, the interior times distribution is given by :math:`f_I(t) =
+f(t)(T - t)` for :math:`t\in[0,T]`. In order to plot the actual shape of
+:math:`f(t)` with this biasing removed, we provide the cdf_exact_given_windows
 function below.
 
 A typical workflow is, given an array of interior times, :code:`t`, and an array
@@ -194,12 +193,22 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
 @bruno_util.random.strong_default_seed
 def ab_window(rands, window_size, offset, num_replicates=1,
               seed=None, random_state=None):
-    """Simulate a two-state system switching between states 0 and 1 with
-    waiting times that can be sampled by rands[0] and rands[1], and whose
-    average waiting times are are means[0], means[1], respectively. Emulate
-    time-homogeneity of the finite observation window by starting the
-    simulation at some specificed offset before time zero, then only recording
-    between times 0 and window_size.
+    """Simulate an asynchronous two-state system from time 0 to `window_size`.
+
+    Similar to :func:`multi_locus_analysis.finite_window.ab_window_fast`, but
+    designed to work when the means of the distributions being used are hard to
+    calculate.
+
+    Simulate asynchronicity by starting the simulation in a uniformly random
+    state at a time :math:`-t_\infty` (a large negative number).
+
+    .. note::
+
+        This number must be specified in the `offset` parameter and if it is
+        not much larger than the means of the waiting times being used, the
+        asynchronicity approximation will be very poor.
+
+    The simulation only records between times 0 and window_size.
 
     Parameters
     ----------
@@ -280,17 +289,25 @@ def ab_window(rands, window_size, offset, num_replicates=1,
 # keep in dataframe functions
 
 def state_changes_to_wait_times(traj, start_times_col='start_time',
-                                state_col='state'):
-    """Converts a Series of state change times into a dataframe containing each
-    wait time, with its start, end, rank order, and the state it's leaving.
+        end_times_col='end_time', window_start_col='window_start',
+        window_end_col='window_end', state_col='state'):
+    """Converts the output of :func:`ab_window_fast` into a
+    :class:`pd.DataFrame` containing each wait time, with its start, end, rank
+    order, and the state it's leaving.
 
     This function deals with "continuous" wait times, as in not measured at
     discrete time points (on a grid), so the wait times it returns are
     exact."""
-    pass
+    waits = traj.copy()
+    waits[start_times_col] = np.max([traj[start_times_col], traj[window_start_col]], axis=0)
+    waits[end_times_col] = np.min([traj[end_times_col], traj[window_end_col]], axis=0)
+    waits['wait_time'] = waits[end_times_col] - waits[start_times_col]
+    waits['window_size'] = waits[window_end_col] - waits[window_start_col]
+    return waits
 
-traj_to_waits = state_changes_to_wait_times
-# traj_to_waits.__doc__ = 'Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_wait_times`'
+def traj_to_waits(*args, **kwargs):
+    "Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_wait_times`"
+    return state_changes_to_wait_times(*args, **kwargs)
 
 def state_changes_to_trajectory(traj, times, state_col='state',
                                 start_times_col='start_time',
@@ -404,8 +421,9 @@ def state_changes_to_trajectory(traj, times, state_col='state',
     movie.index.name = 't'
     return movie
 
-traj_to_movie = state_changes_to_trajectory
-# traj_to_movie.__doc__ = 'Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_trajectory`'
+def traj_to_movie(*args, **kwargs):
+    "Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_trajectory`"
+    return state_changes_to_trajectory(*args, **kwargs)
 
 def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     """Converts a discrete trajectory to a dataframe containing each wait time,
@@ -436,21 +454,18 @@ def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     -------
     wait_df : pd.DataFrame
         columns are ['wait_time', 'start_time', 'end_time', 'wait_state',
-        'wait_type', 'wait_bound_low', 'wait_bound_high'], where
+        'wait_type', 'min_waits', 'max_waits'], where
         [wait,end,start]_time columns are self explanatory, wait_state is the
         value of the states_column during that waiting time, and wait_type is
         one of 'interior', 'left exterior', 'right exterior', 'full exterior',
         depending on what kind of waiting time was observed. See
         the `Notes` section below for detailed explanation of these
-        categories. The 'wait_bound_low/high' columns contain the
+        categories. The 'min/max_waits' columns contain the
         minimum/maximum possible value of the wait time (resp.), given the
         observations.
-        The default index is named "rank_order", since it tracks the order,
-        zero-indexed in whihc the wait times occured.
 
-    .. note::
-
-        wait_bound_* not yet implemented
+        The default index is named "rank_order", since it tracks the order
+        (zero-indexed) in which the wait times occured.
 
     Notes
     -----
@@ -543,10 +558,9 @@ def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     df['window_size'] = times[-1] - times[0]
     return df
 
-movie_to_waits = discrete_trajectory_to_wait_times
-#TODO make this a proper function definition (*args, **kwargs) instead. this
-# overwrites doc of both functions as currently written
-# movie_to_waits.__doc__ = 'Alias of :func:`multi_locus_analysis.finite_window.discrete_trajectory_to_wait_times`'
+def movie_to_waits(*args, **kwargs):
+    """Alias of :func:`multi_locus_analysis.finite_window.discrete_trajectory_to_wait_times`"""
+    return discrete_trajectory_to_wait_times(*args, **kwargs)
 
 # end keep in dataframe functions
 ###############}}}
@@ -595,7 +609,7 @@ def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
 
     Notes
     -----
-    If using ``times_allowed``, the *pad_left* parameters are redundant.
+    If using ``y_allowed``, the *pad_left* parameters are redundant.
     """
     y = np.array(y)
     y.sort()
