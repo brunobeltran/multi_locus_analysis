@@ -198,7 +198,7 @@ If we wanted to use them on the above velocities, we would simply run:
 
     The following creates a temporary file of approximately 2.1GB.
 
-..  new code block
+.. code-block:: python
 
     >>> mla.stats.vels_to_cvvs_by_hand(d_vels, ['meiosis'], 'vvs.csv',
     >>>                                max_t_over_delta=4)
@@ -219,14 +219,14 @@ stage ``t0``) by simply running
     >>> from multi_locus_analysis import plotting
     >>> plotting.cvv_plot_sized(cvv.loc['t0'].reset_index(), data_deltas=30*np.arange(1, 5))
 
-where we ignore larger values of ``delta`` because the amount of data available
-for averaging decreases to a single point as ``delta`` approaches the length of
-the observation.
-
 .. note::
 
     There should be a plot here but it has not been inserted yet pending come
     organizational decisions.
+
+where we ignore larger values of ``delta`` because the amount of data available
+for averaging decreases to a single point as ``delta`` approaches the length of
+the observation.
 
 Notice how the correlation decays as $\delta$ increases. For details on why
 this means that the correlation is actually increasing as delta increases,
