@@ -91,9 +91,10 @@ This trajectory, when measured, would look like
     4    B
     dtype: object
 
-Naively, this would seem to suggest that there was an exterior-censored "A" of
-length 2, one each interior censored times of length 1, and one
-exterior-censored "B" time of length 1. However, by looking at the true
+Naively, if you only had this movie in front of you with no knowledge of the
+actual underlying state change time, it might seem to suggest that there was an
+exterior-censored "A" of length 2, one each interior censored times of length 1,
+and one exterior-censored "B" time of length 1. However, by looking at the true
 trajctory above, we see that the first "A" wait was much shorter than 2s, the
 first "B" wait was much longer than 1s, and the last "A" wait just happened to
 match up with our prediction of 1s.
