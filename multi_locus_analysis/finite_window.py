@@ -4,7 +4,7 @@ This module is designed to facilitate working with Markov processes which have
 been observed over finite windows of time.
 
 Suppose you wish to observe a process that switches between states A and B, and
-observe the process over a window of time [0, T].
+observe the process over a window of time :math:`[0, T]`.
 
 There will be two types of "observed" times, which we we call "interior times"
 (those when the entire time spent in the state is observed) and "exterior
@@ -288,9 +288,7 @@ def ab_window(rands, window_size, offset, num_replicates=1,
 ###############{{{
 # keep in dataframe functions
 
-def state_changes_to_wait_times(traj, start_times_col='start_time',
-        end_times_col='end_time', window_start_col='window_start',
-        window_end_col='window_end', state_col='state'):
+def state_changes_to_wait_times(traj):
     """Converts the output of :func:`ab_window_fast` into a
     :class:`pd.DataFrame` containing each wait time, with its start, end, rank
     order, and the state it's leaving.
@@ -299,10 +297,19 @@ def state_changes_to_wait_times(traj, start_times_col='start_time',
     discrete time points (on a grid), so the wait times it returns are
     exact."""
     waits = traj.copy()
-    waits[start_times_col] = np.max([traj[start_times_col], traj[window_start_col]], axis=0)
-    waits[end_times_col] = np.min([traj[end_times_col], traj[window_end_col]], axis=0)
-    waits['wait_time'] = waits[end_times_col] - waits[start_times_col]
-    waits['window_size'] = waits[window_end_col] - waits[window_start_col]
+    waits['start_time'] = np.max([
+        traj['start_time'].values, traj['window_start'].values],
+        axis=0)
+    waits['end_time'] = np.min(
+        [traj['end_time'].values, traj['window_end'].values],
+        axis=0)
+    waits['wait_time'] = waits['end_time'] - waits['start_time']
+    waits['window_size'] = waits['window_end'] - waits['window_start']
+    waits['wait_type'] = 'interior'
+    waits.loc[waits['start_time'] == waits['window_start'], 'wait_type'] = 'left exterior'
+    waits.loc[waits['end_time'] == waits['window_end'], 'wait_type'] = 'right exterior'
+    waits.loc[waits['window_size'] == waits['wait_time'], 'wait_type'] = 'full exterior'
+    waits.index.name = 'rank_order'
     return waits
 
 def traj_to_waits(*args, **kwargs):
