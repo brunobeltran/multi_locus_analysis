@@ -290,6 +290,7 @@ def state_changes_to_wait_times(traj, start_times_col='start_time',
     pass
 
 traj_to_waits = state_changes_to_wait_times
+# traj_to_waits.__doc__ = 'Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_wait_times`'
 
 def state_changes_to_trajectory(traj, times, state_col='state',
                                 start_times_col='start_time',
@@ -323,8 +324,8 @@ def state_changes_to_trajectory(traj, times, state_col='state',
         simply measures what state `traj` is in at each frame. index is
         `times`, `state_col` is used to name the Series.
 
-    Interval
-    --------
+    Notes
+    -----
 
     A start time means that if we observe at that time, the state transition
     will have already happened (right-continuity). This is confusing in
@@ -404,8 +405,9 @@ def state_changes_to_trajectory(traj, times, state_col='state',
     return movie
 
 traj_to_movie = state_changes_to_trajectory
+# traj_to_movie.__doc__ = 'Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_trajectory`'
 
-def discrete_trajectory_to_wait_times(data, time_column, states_column):
+def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     """Converts a discrete trajectory to a dataframe containing each wait time,
     with its start, end, rank order, and the state it's leaving.
 
@@ -470,18 +472,21 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
     single, particular state throughout your entire window of observation.
     """
 
-    wait_columns = ['wait_time', 'start_time', 'end_time', 'wait_state', 'wait_type']
-    states = data[states_column].values
-    times = data[time_column].values
+    states = data[state_col].values
+    times = data[t_col].values
     num_measurements = len(data)
 
     # now iterate through valid part of trajectory to establish wait times
     start_times = []
     end_times = []
+    earliest_st = [] # bounds on start time
+    latest_st = []
+    earliest_et = [] # bounds on end time
+    latest_et = []
     wait_state = []
     wait_type = []
     k0 = 0 # index at which current state began
-    state = states[i]
+    state = states[k0]
     state_has_changed = False
     for k in range(num_measurements):
         # if no state change, continue
@@ -491,6 +496,14 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
         start_times.append(times[k0])
         end_times.append(times[k])
         wait_state.append(state)
+        # bounds on true wait time value
+        if k0 == 0: # left exterior times have exactly determined "start"
+            earliest_st.append(times[k0])
+        else:
+            earliest_st.append(times[k0-1])
+        latest_st.append(times[k0])
+        earliest_et.append(times[k-1])
+        latest_et.append(times[k])
         # if this is the first state change, we store it separately
         if not state_has_changed:
             wait_type.append('left exterior')
@@ -504,7 +517,15 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
     # also store the time spent in final state
     start_times.append(times[k0])
     end_times.append(times[k])
-    # state type also stored specially
+    if k0 == 0: # full exterior times also have exactly determined "start"
+        earliest_st.append(times[k0])
+    else:
+        earliest_st.append(times[k0-1])
+    latest_st.append(times[k0])
+    # right/full exterior times have exactly determined "end"
+    earliest_et.append(times[k])
+    latest_et.append(times[k])
+    # state type stored specially for final state
     wait_state.append(state)
     if not state_has_changed:
         wait_type.append('full exterior')
@@ -513,13 +534,19 @@ def discrete_trajectory_to_wait_times(data, time_column, states_column):
     start_times = np.array(start_times)
     end_times = np.array(end_times)
     wait_times = end_times - start_times
+    min_waits = np.array(earliest_et) - np.array(latest_st)
+    max_waits = np.array(latest_et) - np.array(earliest_st)
     df = pd.DataFrame({'start_time': start_times, 'end_time': end_times,
-                       'wait_time': wait_times, 'wait_state': wait_state})
+                       'wait_time': wait_times, 'wait_state': wait_state,
+                       'min_waits': min_waits, 'max_waits': max_waits})
     df.index.name = 'rank_order'
-    df['window_size'] = valid_time_window
+    df['window_size'] = times[-1] - times[0]
     return df
 
 movie_to_waits = discrete_trajectory_to_wait_times
+#TODO make this a proper function definition (*args, **kwargs) instead. this
+# overwrites doc of both functions as currently written
+# movie_to_waits.__doc__ = 'Alias of :func:`multi_locus_analysis.finite_window.discrete_trajectory_to_wait_times`'
 
 # end keep in dataframe functions
 ###############}}}

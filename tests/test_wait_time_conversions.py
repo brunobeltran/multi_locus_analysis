@@ -54,3 +54,21 @@ def test_traj_to_movie():
 
     assert(is_equal_or_both_nan(expected_movies, movies.values))
 
+def test_movie_to_waits():
+    movies = pd.DataFrame([], columns=['replicate', 't', 'state'])
+    movies['replicate'] = np.concatenate([np.ones(10), 2*np.ones(10), 3*np.ones(10)]).astype(int)
+    movies['t'] = np.concatenate(3*[np.arange(10)]).astype(float)
+    movies['state'] = 0
+    movies.loc[0, 'state'] = 1
+    movies.loc[9, 'state'] = 1
+    movies.loc[20:30, 'state'] = 1
+
+    waits = movies.groupby('replicate').apply(fw.movie_to_waits, t_col='t', state_col='state')
+    expected_waits = np.array(
+        [[1., 0., 0., 1., 1., 1., 0., 1., 9.],
+        [1., 1., 1., 9., 8., 0., 7., 9., 9.],
+        [1., 2., 9., 9., 0., 1., 0., 1., 9.],
+        [2., 0., 0., 9., 9., 0., 9., 9., 9.],
+        [3., 0., 0., 9., 9., 1., 9., 9., 9.]])
+
+    assert(np.all(waits.reset_index().values == expected_waits))
