@@ -32,7 +32,7 @@ example plots, see the other tutorials.
     Waiting Times <finite_window>
     Analytical Theory <theory>
     Plotting <plots>
-    API reference & Example data sets <api>
+    API reference <api>
 
 Indices and tables
 ==================

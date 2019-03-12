@@ -1,3 +1,5 @@
+"""Utilities for massaging DataFrames"""
+
 import re
 import pandas as pd
 
@@ -5,9 +7,9 @@ def pivot_loci(df, pivot_cols=['x', 'y', 'z'], spot_col='spot'):
     """Move between "long" and "short" forms for the spot id column.
 
     Simply put, we want to be able to transform between the following two
-    dataframes:
+    dataframes::
 
-    ```
+        Condensed form
                                                    X1   Y1   Z1   X2   Y2   Z2     t foci
         locus genotype exp.rep meiosis cell frame
         HET5  WT       2       t0      1    1      1.6  2.4  3.1  2.1  1.5  3.1    0  unp
@@ -15,11 +17,11 @@ def pivot_loci(df, pivot_cols=['x', 'y', 'z'], spot_col='spot'):
                                             3      2.0  1.8  3.0  1.5  2.5  3.4   60  unp
                                             4      2.1  1.9  3.0  1.4  2.2  3.4   90  unp
                                             5      2.2  1.8  3.0  1.5  2.4  3.4  120  unp
-    ```
 
     and
+    ::
 
-    ```
+        "Long" form
                                                         X    Y    Z      t foci
         locus genotype exp.rep meiosis cell frame spot
         HET5  WT       2       t0      1    1     1     1.6  2.4  3.1    0  unp
@@ -29,7 +31,6 @@ def pivot_loci(df, pivot_cols=['x', 'y', 'z'], spot_col='spot'):
                                             1     2     2.1  1.5  3.1    0  unp
                                             2     2     1.9  2.5  3.1   30  unp
                                             3     2     1.5  2.5  3.4   60  unp
-    ```
 
     This function can infer which direction to pivot. Because of this, I have
     found using this function much more convenient (and a smaller cognitive

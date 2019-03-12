@@ -74,3 +74,11 @@ Example data
     examples
     examples.burgess
 
+Utilities
+---------
+
+.. autosummary::
+    :toctree: generated
+    :template: autosummary_module.rst
+
+    dataframes
