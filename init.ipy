@@ -1,4 +1,6 @@
 %matplotlib
+import importlib
+
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -9,4 +11,7 @@ import scipy.stats
 
 import multi_locus_analysis as mla
 from multi_locus_analysis import finite_window as fw
+from multi_locus_analysis import plotting
+from multi_locus_analysis import fitting
+
 from multi_locus_analysis.examples import burgess
