@@ -1,5 +1,6 @@
 """For computing analytical results relevant to diffusing loci"""
 import numpy as np
+import scipy
 from scipy.signal import savgol_filter, savgol_coeffs
 
 from functools import lru_cache

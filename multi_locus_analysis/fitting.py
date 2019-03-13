@@ -14,8 +14,8 @@ def fit_full_fix_beta(tdelta, A, tDeltaN, beta=0.5):
 
 def get_best_fit_fixed_beta(df, t_col='t', delta_col='delta',
                             cvv_col='cvv_normed',
-                            ste_col='ste', p0=[1, 10], counts_col=None,
-                            hack=False):
+                            ste_col='ste', p0=[1, 10], bounds=([0, 1.5], [10, 1000]),
+                            counts_col=None, hack=False):
     """beta = alpha/2"""
     x = np.stack((df[t_col].values, df[delta_col].values))
     y = df[cvv_col].values

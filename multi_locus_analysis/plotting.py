@@ -9,7 +9,7 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
                    alpha_map=None, size_map=None, theory_linewidth=2,
                    include_errorbar=True, include_lines=False,
                    include_points=False, data_line_alpha=1, data_linewidth=1,
-                   BASE_DOT_SIZE=10000):
+                   BASE_DOT_SIZE=10000, **kwargs):
     """One pretty version of the Velocity-Velocity correlation plots for the
     experimental data, with some theory overlaid."""
     # set up data/plot
@@ -39,21 +39,24 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
     if include_points:
         plt.scatter(cvvs[t_col]/cvvs[delta_col],
                     cvvs[cvv_col]/A,
-                    color=colors, s=size_map(cvvs[delta_col]))
+                    color=colors,
+                    s=size_map(cvvs[delta_col]), **kwargs)
     if include_errorbar:
         for delta,data in cvvs.groupby(delta_col):
             td = data['t']/data['delta']
             i = np.argsort(td)
             plt.errorbar(td.iloc[i], data['cvv_normed'].iloc[i],
                     data['ste_normed'].iloc[i], c=cmap(cnorm(delta)),
-                    linewidth=data_linewidth, alpha=data_line_alpha)
+                    linewidth=data_linewidth,
+                         alpha=data_line_alpha, **kwargs)
     if include_lines:
         for delta,data in cvvs.groupby(delta_col):
             color = cmap(delta/max_delta)[0:3] + (data_line_alpha, )
             x = data['t']/delta
             y = np.power(delta, 2 - beta)*data[cvv_col]/A
             i = np.argsort(x)
-            plt.plot(x.iloc[i], y.iloc[i], c=color, linewidth=data_linewidth)
+            plt.plot(x.iloc[i], y.iloc[i], c=color,
+                     linewidth=data_linewidth, **kwargs)
     plt.xlim([0, max_t_over_delta])
     sm = mpl.cm.ScalarMappable(cnorm, cmap)
     sm.set_array([])
