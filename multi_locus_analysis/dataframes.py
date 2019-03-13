@@ -1,7 +1,24 @@
 """Utilities for massaging DataFrames"""
 
 import re
+import json
 import pandas as pd
+import numpy as np
+
+def array_from_numpy_string(s):
+    """For unserializing np.array's after DataFrame.to_csv
+    
+    Notes
+    -----
+    
+    As of 2019-03-13, looks like instead of commas separating the numpy array
+    elements, *two* spaces are printed. We just replace these spaces with
+    commas after removing all other spaces and load the string as json."""
+
+    s = re.sub(' *\[ +', '[', s)
+    s = re.sub(' ([-0-9 ])', '\\1,', s)
+    s = re.sub('\n', ',', s)
+    return np.array(json.loads(s))
 
 def pivot_loci(df, pivot_cols=['x', 'y', 'z'], spot_col='spot'):
     """Move between "long" and "short" forms for the spot id column.
