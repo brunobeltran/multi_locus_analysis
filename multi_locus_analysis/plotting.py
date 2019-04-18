@@ -1,5 +1,5 @@
 """For plotting multi_locus_analysis results"""
-from .analytical import vvc_rescaled_theory
+from .analytical import vvc_normalized_theory
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -48,7 +48,7 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
             i = np.argsort(td)
             plt.errorbar(td.iloc[i], data['cvv_normed'].iloc[i],
                     data['ste_normed'].iloc[i], c=cmap(cnorm(delta)),
-                    linewidth=data_linewidth,
+                         linestyle='', 
                          alpha=data_line_alpha, **kwargs)
     if include_lines:
         for delta,data in cvvs.groupby(delta_col):
@@ -74,7 +74,7 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
     # A = "diffusivity" i.e. MSD(delta) = A*delta^alpha
     # tDeltaN = predicted stress correlation time
     for delta in analytical_deltas:
-        plt.plot(t, vvc_rescaled_theory(t, delta=delta, beta=beta, A=A, tDeltaN=tDeltaN),
+        plt.plot(t, vvc_normalized_theory(t, delta=delta, beta=beta, A=A, tDeltaN=tDeltaN),
                  color=cmap(cnorm(delta)), linewidth=theory_linewidth)
     #     x = np.unique(cvvs[cvvs[:,0] == delta, 1])/delta
     #     x = x[x <= 4]

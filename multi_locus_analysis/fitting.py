@@ -1,5 +1,5 @@
 """For fitting analytical theory to multi_locus_analysis results"""
-from .analytical import vvc_rescaled_theory
+from .analytical import vvc_normalized_theory
 
 import numpy as np
 import scipy
@@ -10,7 +10,7 @@ def fit_full_fix_beta(tdelta, A, tDeltaN, beta=0.5):
     freely diffusing, but attached to each other (so beta = alpha/2 = 1/2)."""
     t = tdelta[0]
     delta = tdelta[1]
-    return vvc_rescaled_theory(t/delta, delta, beta, A, tDeltaN)
+    return vvc_normalized_theory(t/delta, delta, beta, A, tDeltaN)
 
 def get_best_fit_fixed_beta(df, t_col='t', delta_col='delta',
                             cvv_col='cvv_normed',

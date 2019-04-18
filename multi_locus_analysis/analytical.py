@@ -1,7 +1,7 @@
 """For computing analytical results relevant to diffusing loci"""
 # from bruno_util.math import mittag_leffler
 import sys
-sys.path.append('/home/bbeltr1/developer/mittag-leffler')
+sys.path.append('/home/users/bbeltr1/developer/mittag-leffler')
 from mittag_leffler import ml as mittag_leffler
 
 import numpy as np
@@ -197,6 +197,15 @@ def calc_vel_corr_fixed_(tOverDelta, deltaOverTDeltaN, alpha):
 calc_vel_corr_fixed_.vvcf = None
 calc_vel_corr_fixed = np.vectorize(calc_vel_corr_fixed_)
 
+def vvc_unscaled_theory(t, delta, beta, A, tDeltaN):
+    """velocity cross correlation of two points on rouse polymer."""
+    return (vc(t*delta, delta, beta) - calc_vel_corr_fixed(t, delta/tDeltaN, 2*beta))
+
 def vvc_rescaled_theory(t, delta, beta, A, tDeltaN):
     """velocity cross correlation of two points on rouse polymer."""
     return 2*A*np.power(delta, beta)*(vc(t*delta, delta, beta) - calc_vel_corr_fixed(t, delta/tDeltaN, 2*beta))
+
+def vvc_normalized_theory(t, delta, beta, A, tDeltaN):
+    return vvc_unscaled_theory(t, delta, beta, A, tDeltaN) \
+         / vvc_unscaled_theory(0, delta, beta, A, tDeltaN)
+
