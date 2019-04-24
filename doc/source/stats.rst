@@ -35,7 +35,7 @@ You can load in the data we will use in this tutorial as follows:
 
 .. plot::
     :nofigs:
-    :context:
+    :context: close-figs
 
     >>> import multi_locus_analysis as mla
     >>> from multi_locus_analysis.examples import burgess

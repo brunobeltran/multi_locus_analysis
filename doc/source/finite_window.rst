@@ -41,7 +41,7 @@ distributions, and the latter is more general (but *much* slower).
 
 .. plot::
     :nofigs:
-    :context:
+    :context: close-figs
 
     >>> import scipy.stats
     >>> from multi_locus_analysis import finite_window as fw
