@@ -108,7 +108,7 @@ def rouse_cvv(t, delta, n1, n2, alpha, b, N, kbT=1, xi=1, min_modes=500,
     # because teh rouse modes are cos(p*pi*(n/N)), then the number of p's to
     # include per pass before checking for convergence again should be
     theta_eps = min(n1/N/2, n2/N/2)
-    chunk_size = np.ceil(2*pi/theta_eps)
+    chunk_size = int(np.ceil(2*np.pi/theta_eps))
     # first include the first min_modes for all values of t
     for p in range(1, min_modes+1):
         kp = rouse_mode_coef(p, b, N, kbT)
