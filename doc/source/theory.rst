@@ -126,6 +126,78 @@ Biophysical Journal, 2016)
 velocity cross-correlation of two loci on a Rouse polymer can be computed
 exactly.
 
+.. math::
 
+    C_{vv}^{(\delta)}(t, n_1, n_2) = \left\langle \vec{V}^{(\delta)}(n_1, t)
+    \cdot \vec{V}^{(\delta)}(n_2, 0) \right\rangle
 
+after a cosine transform in :math:`n`, and expanding in the fraction diffusion
+eigenbasis :math:`E_{\alpha,1}` (the Mittag-Leffler functions), we get
 
+.. math::
+
+    C_{vv}^{(\delta)}(t, n_1, n_2) = \frac{3 k_B T}{N \xi \Gamma(3 - \alpha)
+    \Gamma(1 + \alpha)} \frac{2 C_v^{(\delta)}(t)}{C_v^{(\delta)}(0)}
+
+.. math::
+
+    + \sum_{p=1}^\infty \frac{3k_BT}{k_p}\phi_p(n_1)\phi_p(n_2) \left(
+    -E_{\alpha,1}( -\frac{k_p|t+\delta|^\alpha}{N\xi\Gamma(3 - \alpha)} )
+    \right.
+
+.. math::
+
+    \left. + 2E_{\alpha,1}( -\frac{k_p|t|^\alpha}{N\xi\Gamma(3 - \alpha)} )
+    -E_{\alpha,1}( -\frac{k_p|t-\delta|^\alpha}{N\xi\Gamma(3 - \alpha)} )
+    \right)
+
+The first term captures the motion of the center of mass of the polymer, while
+the terms in the sum capture the motion due to different "modes" of the polymer.
+
+The dependence on the location along the polymer is captured by these Rouse
+modes, as seen below
+
+.. plot::
+    :context: close-figs
+
+    >>> from multi_locus_analysis import analytical
+    >>> ps = np.arange(1000)
+    >>> modes = analytical.rouse_mode(ps, 0.5, 1)
+    >>> plt.scatter(ps, modes)
+    >>> modes = analytical.rouse_mode(ps, 0.51, 1)
+    >>> plt.scatter(ps, modes)
+    >>> modes = analytical.rouse_mode(ps, 0.91, 1)
+    >>> plt.scatter(ps, modes)
+    >>> plt.xlabel('p')
+    >>> plt.ylabel('$\phi_p(n/N)$')
+    >>> plt.legend(['n = 0.5', 'n = 0.51', 'n = 0.91'])
+
+The coefficients :math:`k_p = \frac{3\pi^2k_BT}{Nb^2} p^2` then determine how
+strongly to weight each mode as a function of :math:`t` and :math:`\delta`.
+
+Because :math:`E_{\alpha,1}(x)\to 0` as :math:`x\to-\infty`, and since
+:math:`k_p \propto p^2`, the terms of the summation will be increasingly small.
+
+Their absolute values are also incredibly small, which is strange, considering
+that they must eventually influence the numerically large factor
+:math:`2AC^{(\delta)}_v(t)/C^{(\delta)}_v(0)`.
+
+We can instead express the velocity correlation in terms of Meijer G-functions
+
+.. math::
+
+    G^{m,n}_{p,q} \left( \left. \begin{matrix} a_1, \dots, a_n ; a_{n+1} \dots a_p \\ b_1, \dots, b_m ; b_{m+1} \dots b_q \end{matrix}\; \right| \; z ; r \right) = \frac{1}{2 \pi i} \int_L \frac{\prod_{j=1}^m \Gamma(b_j+s) \prod_{j=1}^n\Gamma(1-a_j-s)} {\prod_{j=n+1}^{p}\Gamma(a_j+s) \prod_{j=m+1}^q \Gamma(1-b_j-s)} z^{-s/r} ds
+
+in short, we have (for the case :math:`\alpha = 1`)
+
+.. math::
+    C_{vv}^{(\delta)}(t, \Delta n) = \frac{3k_BT}{\delta^2\sqrt{\xi k}}
+
+.. math::
+    \times \left\{ |t - \delta|^{1/2} G_{1,2}^{2,0}\left[\left. \frac{|\Delta{}n|^2 \xi}{4k} |t - \delta|^{-1} \right|^{3/2}_{0,1/2}\right] \right.
+
+.. math::
+    + |t + \delta|^{1/2} G_{1,2}^{2,0}\left[ \frac{|\Delta{}n|^2 \xi}{4k} |t + \delta|^{-1} |^{3/2}_{0,1/2}\right]
+
+.. math::
+    \left. -2|t|^{1/2} G_{1,2}^{2,0}\left[ \frac{|\Delta{}n|^2 \xi}{4k} |t|^{-1} |^{3/2}_{0,1/2}\right] \right\}
