@@ -1,8 +1,5 @@
 """For computing analytical results relevant to diffusing loci"""
-# from bruno_util.math import mittag_leffler
-import sys
-sys.path.append('/home/users/bbeltr1/developer/mittag-leffler')
-from mittag_leffler import ml as mittag_leffler
+from bruno_util.mittag_leffler import ml as mittag_leffler
 
 import numpy as np
 import scipy
@@ -48,7 +45,7 @@ def rouse_mode(p, n, N=1):
     return np.sqrt(2)*np.cos(p*np.pi*n/N)
 
 def rouse_mode_coef(p, b, N, kbT=1):
-    """Weber Phys Rev E 2010, after Eq. 18."""
+    """k_p: Weber Phys Rev E 2010, after Eq. 18."""
     return 3*np.pi**2*kbT/(N*b**2)*p**2
 
 def rouse_mode_corr(p, t, alpha, b, N, kbT=1, xi=1):
@@ -88,7 +85,7 @@ def tDeltaN(n1, n2, alpha, b, kbT, xi):
     delN = np.abs(n2 - n1)
     return np.power(delN*delN*b*b*xi/kbT, 1/alpha)
 
-def rouse_cvv(t, delta, n1, n2, alpha, b, N, kbT=1, xi=1, min_modes=50,
+def rouse_cvv(t, delta, n1, n2, alpha, b, N, kbT=1, xi=1, min_modes=500,
               rtol=1e-5, atol=1e-8, force_convergence=True):
     """Velocity cross-correlation of two points on fractional Rouse polymer
 
@@ -102,10 +99,18 @@ def rouse_cvv(t, delta, n1, n2, alpha, b, N, kbT=1, xi=1, min_modes=50,
     tpdelta = np.power(np.abs(t + delta), alpha)
     tmdelta = np.power(np.abs(t - delta), alpha)
     ta = np.power(np.abs(t), alpha)
+    # center of mass velocity correlation
     c0 = 3*kbT/(delta*delta*N*xi*gamma(3-alpha)*gamma(1+alpha)) \
             * (tpdelta + tmdelta - 2*ta)
+    # correction factor due to being on a polymer is an expansion in terms of
+    # the normal modes of the polymer
     rouse_corr = np.zeros_like(tpdelta)
-    for p in range(1, min_modes): # last one taken care of below
+    # because teh rouse modes are cos(p*pi*(n/N)), then the number of p's to
+    # include per pass before checking for convergence again should be
+    theta_eps = min(n1/N/2, n2/N/2)
+    chunk_size = np.ceil(2*pi/theta_eps)
+    # first include the first min_modes for all values of t
+    for p in range(1, min_modes+1):
         kp = rouse_mode_coef(p, b, N, kbT)
         z = -kp*(N*xi*gamma(3-alpha))
         pdiff = 3*kbT/kp*rouse_mode(p, n1, N)*rouse_mode(p, n2, N) \
@@ -115,25 +120,27 @@ def rouse_cvv(t, delta, n1, n2, alpha, b, N, kbT=1, xi=1, min_modes=50,
         rouse_corr = rouse_corr + pdiff
     if not force_convergence:
         return c0 + rouse_corr
+    # now include more terms in chuck_size number of p's at a time until
+    # convergence. if the first chunk is incomplete (chunk size does not divide
+    # min_modes), then do "one-and-a-half" chunks the first go around
     p += 1
     old_rouse_corr = rouse_corr.copy() # force alloc
-    # track which still need updating
     tol_i = np.ones_like(rouse_corr).astype(bool) # always at least one correction term
-    while np.any(tol_i) or p <= 1000:
-        kp = rouse_mode_coef(p, b, N, kbT)
-        z = -kp*(N*xi*gamma(3-alpha))
+    while np.any(tol_i):
         tpd = tpdelta[tol_i]
         tmd = tmdelta[tol_i]
         tai = ta[tol_i]
         old_rouse_corr[:] = rouse_corr # force memmove
-        pdiff = 3*kbT/kp*rouse_mode(p, n1, N)*rouse_mode(p, n2, N) \
-                *(2*mittag_leffler(z*tai, alpha, 1)
-                    - mittag_leffler(z*tpd, alpha, 1)
-                    - mittag_leffler(z*tmd, alpha, 1))
-        rouse_corr[tol_i] = rouse_corr[tol_i] + pdiff
-        if np.mod(p, 2) == 0: # only even terms contribute
-            tol_i = ~np.isclose(rouse_corr, old_rouse_corr, rtol, atol)
-        p += 1
+        for i in range(chunk_size):
+            kp = rouse_mode_coef(p, b, N, kbT)
+            z = -kp*(N*xi*gamma(3-alpha))
+            pdiff = 3*kbT/kp*rouse_mode(p, n1, N)*rouse_mode(p, n2, N) \
+                    *(2*mittag_leffler(z*tai, alpha, 1)
+                        - mittag_leffler(z*tpd, alpha, 1)
+                        - mittag_leffler(z*tmd, alpha, 1))
+            rouse_corr[tol_i] = rouse_corr[tol_i] + pdiff
+            p += 1
+        tol_i = ~np.isclose(rouse_corr, old_rouse_corr, rtol, atol)
     return c0 + rouse_corr
 
 def rouse_nondim_(t, delta, n1, n2, alpha, b, N, kbT=1, xi=1):

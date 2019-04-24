@@ -25,7 +25,7 @@ def test_cvv_versus_tom():
     # tOverDeltas_ = np.linspace(0, 5, 501) # steps of 0.01
     # tOverDeltas = analytical.tOverDeltas_
     alphas = [0.25, 0.5, 0.75, 1]
-    deltaOverTDeltaNs = np.logspace(-3, 3, 5)
+    deltaOverTDeltaNs = 3.8*np.logspace(-3, 1, 5)
     tOverDeltas = np.linspace(0, 5, 51)
     params = np.stack(list(itertools.product(deltaOverTDeltaNs, alphas)))
     full_params = list(map(lambda p: analytical.un_rouse_nondim(tOverDeltas, *p), params))
