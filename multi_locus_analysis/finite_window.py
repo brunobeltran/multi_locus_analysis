@@ -1,4 +1,4 @@
-"""For correcting interior- and exterior-censored data
+r"""For correcting interior- and exterior-censored data
 
 This module is designed to facilitate working with Markov processes which have
 been observed over finite windows of time.
@@ -193,7 +193,7 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
 @bruno_util.random.strong_default_seed
 def ab_window(rands, window_size, offset, num_replicates=1,
               seed=None, random_state=None):
-    """Simulate an asynchronous two-state system from time 0 to `window_size`.
+    r"""Simulate an asynchronous two-state system from time 0 to `window_size`.
 
     Similar to :func:`multi_locus_analysis.finite_window.ab_window_fast`, but
     designed to work when the means of the distributions being used are hard to
@@ -776,7 +776,7 @@ def sample_from_cdf(n, x, cdf):
 
 def bootstrapped_pmf_confint(n_samples, alpha, x, cdf, num_bootstraps=1000,
                              bonferroni=True):
-    """Given an empirical cdf (x, cdf), this function generates bootstrapped
+    r"""Given an empirical cdf (x, cdf), this function generates bootstrapped
     error bars that represent, pointwise, the area that a second observation of
     n_samples (need not equal the number of samples used to generate (x, cdf))
     would lie between with probability 1-alpha if it had a true CDF given by the
