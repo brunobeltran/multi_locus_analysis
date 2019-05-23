@@ -179,6 +179,7 @@ polymer as a whole will diffuse as if experiencing an effective viscosity of
 .. plot::
     :context: close-figs
 
+    >>> import matplotlib as mpl
     >>> from multi_locus_analysis import analytical
     >>> alpha = 0.8; N = 100; b = 1
     >>> t = np.logspace(-6, 6, 100)
