@@ -71,7 +71,7 @@ from scipy import stats
 from scipy import interpolate
 import statsmodels
 import statsmodels.stats.proportion as binom
-from lifelines import KaplanMeierFitter
+# from lifelines import KaplanMeierFitter
 
 import bruno_util
 import bruno_util.random
