@@ -24,19 +24,36 @@ def frac_cv(t, alpha, kbT=1, xi=1):
     return -(3*kbT/xi)*np.sin(alpha*np.pi)/(np.pi*(2-alpha))*np.abs(np.power(t, alpha-2))
 
 def frac_discrete_cv(t, delta, alpha, kbT=1, xi=1):
+    """Discrete velocity autocorrelation of a fractionally-diffusing particle.
+    Weber, Phys Rev E, 2010 (Eq 33)"""
     t = np.atleast_1d(t)
     delta = np.atleast_1d(delta)
-    eta = delta/t
-    t = t + np.zeros_like(eta) # fix to full size if not already
-    delta = delta + np.zeros_like(eta) # fix to full size if not already
-    cv_delta_t = frac_cv(t, alpha, kbT, xi)/(eta*eta*alpha*(1 - alpha))
-    cv_delta_t[eta<=1] = cv_delta_t[eta<=1] \
-        *(2 - np.power(1 - eta[eta<=1], alpha) - np.power(1 + eta[eta<=1], alpha))
-    cv_delta_t[eta>1] = cv_delta_t[eta>1] \
-        *(2 + np.power(eta[eta>1] - 1, alpha) - np.power(1 + eta[eta>1], alpha)) \
-        + frac_msd(delta[eta>1] - t[eta>1], alpha, kbT, xi)/delta[eta>1]/delta[eta>1]
-    cv_delta_t[t == 0] = frac_msd(delta[t == 0], alpha, kbT, xi)/np.power(delta[t == 0], 2)
+    # too many divide by t's to rewrite to avoid these warnings in less than
+    # 5min, not worth it.
+    with np.errstate(divide='ignore', invalid='ignore'):
+        eta = delta/t
+        t = t + np.zeros_like(eta) # fix to full size if not already
+        delta = delta + np.zeros_like(eta) # fix to full size if not already
+        cv_delta_t = frac_cv(t, alpha, kbT, xi)/(eta*eta*alpha*(1 - alpha))
+        cv_delta_t[eta<=1] = cv_delta_t[eta<=1] \
+            *(2 - np.power(1 - eta[eta<=1], alpha) - np.power(1 + eta[eta<=1], alpha))
+        cv_delta_t[eta>1] = cv_delta_t[eta>1] \
+            *(2 + np.power(eta[eta>1] - 1, alpha) - np.power(1 + eta[eta>1], alpha)) \
+            + frac_msd(delta[eta>1] - t[eta>1], alpha, kbT, xi)/delta[eta>1]/delta[eta>1]
+        cv_delta_t[t == 0] = frac_msd(delta[t == 0], alpha, kbT, xi)/np.power(delta[t == 0], 2)
     return cv_delta_t
+
+def frac_discrete_cv_normalized(t, delta, alpha):
+    """Normalized discrete velocity autocorrelation of a fractionally-diffusing
+    particle. Should be equivalent to
+
+        frac_discrete_cv(t, delta, 1, 1)/frac_discrete_cv(0, delta, 1, 1)
+
+    Lampo, BPJ, 2016 (Eq 5)"""
+    return (np.power(np.abs(t - delta), alpha)
+        - 2*np.power(np.abs(t), alpha)
+        + np.power(np.abs(t + delta), alpha)
+        )/(2*np.power(delta, alpha))
 
 @jit
 def rouse_mode(p, n, N=1):
