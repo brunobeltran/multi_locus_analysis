@@ -88,7 +88,6 @@ case, from above).
 .. plot::
     :context:
 
-    >>> import matplotlib.pyplot as plt
     >>> plt.figure(figsize=[4, 3])
     >>> interior_0 = waits.loc[
     >>>     (waits['wait_type'] == 'interior') & (waits['state'] == 0),
