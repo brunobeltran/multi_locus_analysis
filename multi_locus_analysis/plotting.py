@@ -48,7 +48,7 @@ def cvv_plot_sized(cvvs, analytical_deltas=[], delta_col='delta', t_col='t',
             i = np.argsort(td)
             plt.errorbar(td.iloc[i], data['cvv_normed'].iloc[i],
                     data['ste_normed'].iloc[i], c=cmap(cnorm(delta)),
-                         linestyle='', 
+                         linestyle='',
                          alpha=data_line_alpha, **kwargs)
     if include_lines:
         for delta,data in cvvs.groupby(delta_col):

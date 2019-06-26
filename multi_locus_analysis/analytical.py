@@ -275,7 +275,7 @@ calc_vel_corr_fixed = np.vectorize(calc_vel_corr_fixed_)
 
 def vvc_unscaled_theory(t, delta, beta, A, tDeltaN):
     """velocity cross correlation of two points on rouse polymer."""
-    return (vc(t*delta, delta, beta) - calc_vel_corr_fixed(t, delta/tDeltaN, 2*beta))
+    return 2*(vc(t*delta, delta, beta) - calc_vel_corr_fixed(t, delta/tDeltaN, 2*beta))
 
 def vvc_rescaled_theory(t, delta, beta, A, tDeltaN):
     """velocity cross correlation of two points on rouse polymer."""

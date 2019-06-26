@@ -422,6 +422,21 @@ functionality is implemented in the well-tested package `mpmath`.
 Velocity Cross-Correlation "Trick"
 ----------------------------------
 
-It is simple enough to notice that
+Let us consider the velocity autocorrelation of the distance
+between two monomers :math:`C_{\Delta{}V}^{(\delta)}`, where
+:math:`\Delta{}V^{(\delta)}(t) =
+\Delta X(t + \delta) - \Delta X(t)` and `\Delta X(t) = X_2(t) - X_1(t)`.
 
+This quantity has the useful property of being drift-free. That is, an arbitrary
+rotation and translation can be applied to the sample at each time without
+affecting the values of :math:`\Delta{}V^{(\delta)}(t)`.
+
+It is simple enough to notice that this is simply equal to
+
+.. math::
+
+    C_{\Delta{}V}^{(\delta)}(t, \Delta n) = C_{vv}^{(\delta)}(t, \Delta n) -
+    2*C_{v}^{(\delta)}(t)
+
+where the monomer velocity autocorrelation :math:`C_{v}^{(\delta)}(t)` and the velocity cross correlation between two monomers :math:`C_{vv}^{(\delta)}` is as above.
 
