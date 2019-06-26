@@ -1,5 +1,9 @@
 r"""``burgess`` Data Set
 
+Various movies (many cells per movie) of yeast cells undergoing meiosis. In
+each cell, two loci are tagged (in the same color). Various mutants and stages
+of meiosis were imaged.
+
 Data interface
 ^^^^^^^^^^^^^^
 

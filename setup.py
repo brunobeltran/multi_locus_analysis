@@ -15,10 +15,14 @@ setup(name='multi_locus_analysis',
       author='Bruno Beltran',
       author_email='brunobeltran0@gmail.com',
       packages=['multi_locus_analysis', 'multi_locus_analysis.examples',
-                'multi_locus_analysis.examples.burgess',
-                'multi_locus_analysis.examples.garcia'],
-      package_data={'multi_locus_analysis': ['vvcf_table.csv',
-          'examples/burgess/xyz_conf_okaycells9exp.csv']},
+                # 'multi_locus_analysis.examples.garcia',
+                'multi_locus_analysis.examples.burgess'],
+      package_data={
+          'multi_locus_analysis':
+              ['vvcf_table.csv'],
+          'multi_locus_analysis.examples.burgess':
+              ['examples/burgess/xyz_conf_okaycells9exp.csv'],
+      },
       license='MIT',
       classifiers=[
           'Development Status :: 2 - Pre-Alpha',
