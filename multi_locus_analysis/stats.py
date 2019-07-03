@@ -286,7 +286,7 @@ def groupby_apply_efficient(df, group_cols, apply_fun, n_between_gc=50,
     return pd.concat(output_df, ignore_index=True)
 
 def vels_to_cvvs_by_hand(vels, groups, file_name, framecol='ti', dxcol='vx',
-                            dycol='vy', dzcol=None, max_t_over_delta=None, max_dt=None,
+                            dycol='vy', dzcol='vz', max_t_over_delta=None, max_dt=None,
                             allowed_dts=None, deltas_of_interest=None,
                             include_group=True):
     """should be passed a velocities dataframe (as from pos_to_all_vel.

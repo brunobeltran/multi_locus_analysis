@@ -15,7 +15,6 @@ from multi_locus_analysis import plotting
 from multi_locus_analysis import fitting
 from multi_locus_analysis import analytical
 
-
 from multi_locus_analysis.examples import burgess
 from multi_locus_analysis.examples import garcia
 

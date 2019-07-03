@@ -1,0 +1,83 @@
+%run ~/developer/multi_locus_analysis/init.ipy
+df = pd.read_csv('PythonTable.csv')
+all_vel = df.groupby('Prefix_label').apply(mla.pos_to_all_vel, xcol='X', ycol='Y', zcol='Z', framecol='tp_n')
+all_vel.dropna(inplace=True)
+
+# msds
+total_vel2 = (all_vel['vx']**2 + all_vel['vy']**2 + all_vel['vz']**2)
+msds = total_vel2.groupby(['Prefix_label', 'delta']).agg(['mean', 'std', 'count'])
+msds.reset_index(inplace=True)
+msds['ste'] = msds['std']/np.sqrt(msds['count'])
+for label, msd in msds.groupby('Prefix_label'):
+    plt.errorbar(msd['delta'], msd['mean'], msd['ste'], label=label)
+plt.legend()
+plt.yscale('log'); plt.xscale('log')
+
+# fitting to rouse theory
+def msd_curve(delta, A, tDeltaN, beta=0.5):
+    return analytical.vvc_rescaled_theory(0, delta, beta, A, tDeltaN)
+
+# first manually determine what the bounds of the fit should be, since there are
+# liable to be traces with multiple different behaviors at different time scales
+
+msd_bounds_file = Path('msd_fit_bounds.csv')
+if msd_bounds_file.exists():
+    msd_fit_bounds_ok = pd.read_csv(msd_bounds_file, index_col=0)
+else:
+    lower = {}
+    upper = {}
+    for label, msd in msds.groupby('Prefix_label'):
+        plt.cla()
+        plt.errorbar(msd['delta'], msd['mean'], msd['ste'], label=label)
+        plt.pause(0.05)
+        lower[label] = float(input('what does the confinement radius appear to be?: '))
+        upper[label] = input('describe your confidence in this radius: ')
+    msd_fit_bounds_ok = pd.DataFrame([lower, upper]).T
+    msd_fit_bounds_ok.columns = ['lower fit bound', 'upper fit bound']
+    msd_fit_bounds_ok.to_csv(msd_bounds_file)
+
+msd_tdeltan_fits = {}
+for label, msd in msds.groupby('Prefix_label'):
+    lower, upper = msd_fit_bounds_ok.loc[label].values
+    msd = msd.reset_index().dropna()
+    x = msd['delta'].values
+    y = msd['mean'].values
+    msd_tdeltan_fits[label] = scipy.optimize.curve_fit(msd_curve,
+            x[(x>=lower)&(x<=upper)], y[(x>=lower)&(x<=upper)],
+            p0=[1, 100], bounds=([0.1, 1], [2, 173]))
+msd_tdeltan_fits = pd.DataFrame.from_dict(msd_tdeltan_fits).T
+err_cols = ['A_ste', 'C_A_tDeltaN', 'C_tDeltaN_A', 'tDeltaN_ste']
+fit_cols = ['A', 'tDeltaN']
+fit_err = msd_tdeltan_fits[1].apply(lambda d: pd.Series(d.flatten()))
+fit_err.columns = err_cols
+fits = msd_tdeltan_fits[0].apply(pd.Series)
+fits.columns = fit_cols
+msd_tdeltan_fits = pd.concat([fits, fit_err], axis=1)
+
+# cvvs
+mla.vels_to_cvvs_by_hand(all_vel, ['Prefix_label'], 'all_cvvs.csv', dzcol='vz', max_t_over_delta=4)
+cvv_stats = mla.vvc_stats_by_hand('all_cvvs.csv', groups='Prefix_label')
+cvv_stats = mla.cvv_by_hand_make_usable(cvv_stats, ['Prefix_label'])
+
+# plotting them
+from multi_locus_analysis import plotting
+for label, data in cvv_stats.groupby('Prefix_label'):
+    plotting.cvv_plot_sized(data, data_deltas=[1,8,16])
+    plt.title(label)
+# plt.close('all')
+
+# fitting to rouse theory
+from multi_locus_analysis import fitting
+fitting_results = cvv_stats.groupby('Prefix_label').apply(fitting.get_best_fit_fixed_beta, bounds=([0.1, 1], [2, 173]))
+fitting_results = fitting_results.apply(pd.Series)
+
+
+#########
+# plotting cvv vs analytical theory with msd fit params
+def plot_msd_fit(data):
+    label = data['Prefix_label'].iloc[0]
+    plotting.cvv_plot_sized(data, data_deltas=[1, 8, 16], include_lines=False, analytical_deltas=[1, 8, 16], A=msd_fits.loc[label, 'A'], tDeltaN=msd_fits.loc[label, 'tDeltaN'])
+    plt.title(label)
+    plt.savefig(f'cvv_with_msd_params/{label}.pdf')
+
+
