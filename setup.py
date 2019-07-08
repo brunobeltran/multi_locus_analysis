@@ -20,8 +20,8 @@ setup(name='multi_locus_analysis',
       package_data={
           'multi_locus_analysis':
               ['vvcf_table.csv'],
-          'multi_locus_analysis.examples.burgess':
-              ['examples/burgess/xyz_conf_okaycells9exp.csv'],
+          # 'multi_locus_analysis.examples.burgess':
+          #     ['examples/burgess/xyz_conf_okaycells9exp.csv'],
       },
       license='MIT',
       classifiers=[
