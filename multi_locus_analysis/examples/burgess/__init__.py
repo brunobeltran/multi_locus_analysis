@@ -77,8 +77,10 @@ from pathlib import Path
 
 burgess_dir = Path(__file__).resolve().parent
 
+condition_cols = ['locus', 'genotype', 'meiosis']
 movie_cols = ['locus', 'genotype', 'exp.rep', 'meiosis']
 cell_cols = movie_cols + ['cell']
+
 frame_cols = cell_cols + ['frame']
 traj_cols = cell_cols + ['spot']
 spot_cols = cell_cols + ['frame', 'spot']
@@ -87,6 +89,15 @@ spot_cols = cell_cols + ['frame', 'spot']
 df = pd.read_csv(burgess_dir / Path('xyz_conf_okaycells9exp.csv'))
 
 def add_foci(df):
+    """Extract a column labeling whether the loci are paired at each frame.
+
+    Data comes in as raw trajectories. "Paired" trajectories (where the
+    second loci cannot be measured because it is coincident with the first) are
+    labeled only by the fact that the second loci has NaN values.
+
+    NOTE: when both X1 and X2 are NaN, this is simply a bad frame, these should
+    remain NaN.
+    """
     foci1 = (np.isfinite(df.X1) & np.isfinite(df.Y1) & np.isfinite(df.Z1))
     foci2 = (np.isfinite(df.X2) & np.isfinite(df.Y2) & np.isfinite(df.Z2))
     notfoci2 = ~((np.isfinite(df.X2) | np.isfinite(df.Y2) | np.isfinite(df.Z2)))
@@ -100,13 +111,52 @@ def add_foci(df):
     return df
 
 def replace_na(df):
+    """Assuming we have add_foci'd, we don't need to artificially set the
+    second trajectory's values to NaN, so undo that here."""
     # apparently this doesn't work
     # df.loc[np.isnan(df['X2']), ['X2', 'Y2', 'Z2']]
     # so instead
     for i in ['X', 'Y', 'Z']:
         df.loc[np.isnan(df[i+'2']), i+'2'] = df.loc[np.isnan(df[i+'2']), i+'1']
-    df.dropna(inplace=True)
     return df
+
+def breakup_by_na(traj):
+    """Take a Burgess trajectory, and create a new column "na_id" that
+    uniquely tracks continuous chunks of trajectory where there are no
+    NAN's.
+
+    This should be applied to the "flat" dataframe, without breaking up the
+    trajectories by which spot it is. This is because if one spot was
+    incorrectly measured, we have effectively zero confidence that the other
+    one was.
+    """
+    # first make sure that the following code makes sense. we use the
+    # assumption that all frames are included in the data, with frames that
+    # failed to yield a good measurement being labeled simply by a row of all
+    # NaN in the data. So we first check that no "frames" are "left out"
+    assert(np.all(np.diff(traj.reset_index()['frame'].values) == 1))
+    # now find the NaN rows, if they exist. the following array will be
+    # true if we should break to a "new" na_id at that row (some redundancy,
+    # since strings of consecutive NAN's are "broken" at each row)
+    break_on = np.any(traj.isna(), axis=1)
+    # unique ID
+    traj['na_id'] = np.cumsum(break_on)
+    return traj
+
+def add_wait_id(traj):
+    """Take a single Burguess "cell", and add a column that uniquely tracks the
+    individual stretches of time over which that cell has "pair" or "unp" loci.
+
+    Assumes that wait_id is not changed by internal NaN's. If you wish to break
+    over both wait_id and NaN, simply use both this function and breakup_by_na,
+    and groupby both _id's simultaneously.
+    """
+    fnum = (traj['foci'] == 'pair').astype(int)
+    # 0 or 1 depending on whether we should start a new wait_id at that row
+    break_on = np.insert(np.abs(np.diff(fnum.values)), 0, 0)
+    traj['wait_id'] = np.cumsum(break_on)
+    return traj
+
 
 # munge the raw data provided by Trent from the Burgess lab into the format our
 # code expects
@@ -118,24 +168,26 @@ cols = list(df.columns)
 cols[5] = 'frame'
 cols[6] = 't'
 df.columns = cols
+del cols
 df = replace_na(df)
 df.set_index(frame_cols, inplace=True)
+df = df.groupby(cell_cols).apply(breakup_by_na)
+df = df.groupby(cell_cols).apply(add_wait_id)
+df_flat = df
 df = pivot_loci(df, pivot_cols=['X', 'Y', 'Z'])
+for X in ['X', 'Y', 'Z']:
+    df_flat['d'+X] = df_flat[X+'2'] - df_flat[X+'1']
 
 
 def make_all_intermediates(prefix=burgess_dir, force_redo=False):
     prefix = Path(prefix)
-
-    df2 = pivot_loci(df, pivot_cols=['X', 'Y', 'Z'])
-    for X in ['X', 'Y', 'Z']:
-        df2['d'+X] = df2[X+'2'] - df2[X+'1']
 
     all_vel3_file = prefix / Path('all_vel3.csv')
     if all_vel3_file.exists() and not force_redo:
         all_vel3 = pd.read_csv(all_vel3_file)
     else:
         # happens instantaneously
-        all_vel3 = df2 \
+        all_vel3 = df_flat \
                 .groupby(cell_cols) \
                 .apply(pos_to_all_vel, xcol='dX', ycol='dY', zcol='dZ', framecol='frame')
         all_vel3['abs3(v)'] = np.sqrt(np.power(all_vel3['vx'], 2)
@@ -170,7 +222,7 @@ def make_all_intermediates(prefix=burgess_dir, force_redo=False):
     if waitdf_file.exists() and not force_redo:
         waitdf = pd.read_csv(waitdf_file)
     else:
-        waitdf = df2.groupby(cell_cols).apply(discrete_trajectory_to_wait_times, t_col='t', state_col='foci')
+        waitdf = df_flat.groupby(cell_cols).apply(discrete_trajectory_to_wait_times, t_col='t', state_col='foci')
         waitdf.to_csv(waitdf_file)
     msds_movies_file = prefix / Path('msds_movies.csv')
     if msds_movies_file.exists() and not force_redo:
