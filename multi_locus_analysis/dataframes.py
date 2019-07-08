@@ -83,9 +83,18 @@ def pivot_loci(df, pivot_cols=['x', 'y', 'z'], spot_col='spot'):
                 del data[col]
             data.index = data.index.droplevel(spot_col)
             return data
+        # make one dataframe per spot_id, with just that data in it
         dfs = [rename_cols(data) for _, data in df.groupby(spot_col)]
+        # now copy out the non-traj data (that wasn't split apart in prev line)
         df = df[extra_cols].copy()
+        # flatten across the "spot_id" dimension by removing that index and
+        # then deleting redundant index values (this assumes that extra_cols
+        # are always constant as you change spot_id), if they are not you
+        # should be including them in the "traj" cols. Otherwise, only the
+        # "spot==1" value is kept here
         df.index = df.index.droplevel(spot_col)
+        df = df[~df.index.duplicated(keep='first')]
+        # now add back in the columns we manually split apart
         for data in dfs:
             df[data.columns] = data
     # if we are creating a spot column from numbered columns
