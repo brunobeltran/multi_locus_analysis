@@ -85,8 +85,7 @@ frame_cols = cell_cols + ['frame']
 traj_cols = cell_cols + ['spot']
 spot_cols = cell_cols + ['frame', 'spot']
 
-
-df = pd.read_csv(burgess_dir / Path('xyz_conf_okaycells9exp.csv'))
+df_xyz = pd.read_csv(burgess_dir / Path('xyz_conf_okaycells9exp.csv'))
 
 def add_foci(df):
     """Extract a column labeling whether the loci are paired at each frame.
@@ -158,25 +157,34 @@ def add_wait_id(traj):
     return traj
 
 
-# munge the raw data provided by Trent from the Burgess lab into the format our
-# code expects
-# df = df[df['observation'] == 'Okay'] # already done by trent for this file
-df = add_foci(df)
-del df['observation']
-del df['desk']
-cols = list(df.columns)
-cols[5] = 'frame'
-cols[6] = 't'
-df.columns = cols
-del cols
-df = replace_na(df)
-df.set_index(frame_cols, inplace=True)
-df = df.groupby(cell_cols).apply(breakup_by_na)
-df = df.groupby(cell_cols).apply(add_wait_id)
-df_flat = df
-df = pivot_loci(df, pivot_cols=['X', 'Y', 'Z'])
-for X in ['X', 'Y', 'Z']:
-    df_flat['d'+X] = df_flat[X+'2'] - df_flat[X+'1']
+def munge_data(df):
+    # munge the raw data provided by Trent from the Burgess lab into the format our
+    # code expects
+    # df = df[df['observation'] == 'Okay'] # already done by trent for this file
+    df = add_foci(df)
+    del df['observation']
+    del df['desk']
+    cols = list(df.columns)
+    cols[5] = 'frame'
+    cols[6] = 't'
+    df.columns = cols
+    del cols
+    df = replace_na(df)
+    df.set_index(frame_cols, inplace=True)
+    df = df.groupby(cell_cols).apply(breakup_by_na)
+    df = df.groupby(cell_cols).apply(add_wait_id)
+    df_flat = df
+    df = pivot_loci(df, pivot_cols=['X', 'Y', 'Z'])
+    for X in ['X', 'Y', 'Z']:
+        df_flat['d'+X] = df_flat[X+'2'] - df_flat[X+'1']
+    return df, df_flat
+
+df_file = burgess_dir / Path('df.csv')
+df_flat_file = burgess_dir / Path('df_flat.csv')
+if not (df_file.exists() and df_flat_file.exists()):
+    df, df_flat = munge_data(df_xyz)
+    df.to_csv(df_file)
+    df_flat.to_csv(df_flat_file)
 
 
 def make_all_intermediates(prefix=burgess_dir, force_redo=False):

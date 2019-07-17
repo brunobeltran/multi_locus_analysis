@@ -64,7 +64,10 @@ MSDs to the small side).
 
 from . import *
 
-def msd(df, mscd=True, include_z=False, traj_group=cell_cols, groups=condition_cols):
+from pathlib import Path
+
+def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
+        groups=condition_cols, vel_file=None):
     """Catch-all function to compute the various versions of the MSD curves
     that you might want to investigate. In particular, see Notes below for how
     to compute all (a)-(g) versions of the MS(C)Ds described in the module
@@ -95,9 +98,52 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols, groups=condition_c
         'std', 'count'] as the columns, corresponding to the time-and-ensemble
         averaged quantities for the MSD as a function of 'delta' for each group
         in :param:`groups`.
+    """
+    if traj_group is None:
+        traj_group = cell_cols if mscd else cell_cols+['spot']
+    x = 'X'; y = 'Y'; z = 'Z' if include_z else None
+    if mscd:
+        x = 'd'+x; y = 'd'+y;
+        if include_z:
+            z = 'd'+z
+    all_vel = df \
+            .groupby(traj_group) \
+            .apply(pos_to_all_vel, xcol=x, ycol=y, zcol=z, framecol='t')
+    absv2 = np.power(all_vel['vx'], 2)
+    absv2 += np.power(all_vel['vy'], 2)
+    if include_z:
+        absv2 += np.power(all_vel['vz'], 2)
+    all_vel['abs(v)'] = np.sqrt(absv2)
+    if vel_file:
+        all_vel.to_csv(vel_file)
+    if 'delta' not in groups:
+        groups = groups + ['delta']
+    msds = all_vel.groupby(groups)['abs(v)'].agg(['mean', 'std', 'count'])
+    msds['ste'] = msds['std']/np.sqrt(msds['count']-1)
+    msds['ste_norm'] = msds['ste']*np.sqrt(2/(msds['count']-1)) \
+            *scipy.special.gamma(msds['count']/2) \
+            /scipy.special.gamma((msds['count']-1)/2)
+    return msds
 
-    Notes
-    -----
+msd_args = {
+    'dvel': {'df': df_flat, 'mscd': True},
+    'dvel_unp': {'df': df_flat[df_flat['foci'] == 'unp'], 'mscd': True},
+    'dvel_by_wait': {'df': df_flat[df_flat['foci'] == 'unp'],
+                     'mscd': True,
+                     'traj_group': cell_cols + ['wait_id']},
+    'vel_double_counted': {'df': df, 'mscd': False},
+    # 'vel_no_double': {'df': df},
+    # 'vel_spot2_by_wait': {'df': df},
+    'vel_unp_by_wait': {'df': df[df['foci'] == 'unp'],
+                        'traj_group': cell_cols + ['spot', 'wait_id'],
+                        'mscd': False},
+    'vel_pair_by_wait': {'df': df[df['foci'] == 'pair'],
+                         'traj_group': cell_cols + ['spot', 'wait_id'],
+                         'mscd': False},
+}
+def precompute_msds():
+    """Precomputes a bunch of different "MS(C)Ds"
+
     The various types of MSDs described in the module documentation can be
     computed as follows (with include_z and groups as you see fit)::
 
@@ -112,40 +158,23 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols, groups=condition_c
         (g) msd(df[df['foci'] == 'unp'], traj_group=cell_cols+['spot'+'wait_id'])
             msd(df[(df['foci'] == 'pair') & (df['spot'] == 1)], traj_group=cell_cols+['wait_id'])
 
+    We refer to the velocities calculated from each of the above subsets of
+    the Burgess data by easy-to-remember names::
+
+        (a) dvel
+        (b) dvel_unp
+        (c) dvel_by_wait
+        (d) vel_double_counted
+        (e) vel_no_double: NOT CURRENTLY COMPUTED
+        (f) vel_spot2_by_wait: NOT CURRENTLY COMPUTED
+        (g) vel_unp_by_wait
+            vel_pair_by_wait
+
     """
-    if traj_cols is None:
-        traj_cols = cell_cols if mscd else cell_cols+['spot']
-    x = 'X'; y = 'Y'; z = 'Z' if include_z else None
-    if mscd:
-        x = 'd'+x; y = 'd'+y;
-        if include_z:
-            z = 'd'+z
-    all_vel = df \
-            .groupby(traj_group) \
-            .apply(pos_to_all_vel, xcol=x, ycol=y, zcol=z, framecol='t')
-    absv2 = np.power(all_vel['vx'], 2)
-    absv2 += np.power(all_vel['vy'], 2)
-    if include_z:
-        absv2 += np.power(all_vel['vz'], 2)
-    all_vel['abs(v)'] = np.sqrt(absv2)
-    if 'delta' not in groups:
-        groups = groups + ['delta']
-    msds = all_vel.groupby(groups)['abs(v)'].agg(['mean', 'std', 'count'])
-    return msds
-
-def mscd_b(df, include_z=False, groups=condition_cols):
-    x = 'dX'; y = 'dY'; z = 'dZ' if include_z else None
-    all_vel = df \
-            .groupby(cell_cols) \
-            .apply(pos_to_all_vel, xcol=x, ycol=y, zcol=z, framecol='t')
-    absv2 = np.power(all_vel['vx'], 2)
-    absv2 += np.power(all_vel['vy'], 2)
-    if include_z:
-        absv2 += np.power(all_vel['vz'], 2)
-    all_vel['abs(v)'] = np.sqrt(absv2)
-    if 'delta' not in groups:
-        groups = groups + ['delta']
-    msds = all_vel.groupby(groups)['abs(v)'].agg(['mean', 'std', 'count'])
-    return msds
-
+    for name, kwargs in msd_args.items():
+        kwargs['vel_file'] = name + '.csv'
+        msd_file = 'msds_' + name + '.csv'
+        if not Path(msd_file).exists():
+            msds = msd(**kwargs)
+            msds.to_csv(msd_file)
 
