@@ -173,7 +173,7 @@ def precompute_msds():
     """
     for name, kwargs in msd_args.items():
         kwargs['vel_file'] = name + '.csv'
-        msd_file = 'msds_' + name + '.csv'
+        msd_file = burgess_dir / Path('msds_' + name + '.csv')
         if not Path(msd_file).exists():
             msds = msd(**kwargs)
             msds.to_csv(msd_file)

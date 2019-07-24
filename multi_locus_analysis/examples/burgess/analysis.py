@@ -28,7 +28,7 @@ def alpha_fit():
 
     CONCLUSION: :math:`alpha` is something like 0.2.
     """
-    mscd_unbound_only = pd.read_csv('./msds_dvel_by_wait.csv')
+    mscd_unbound_only = pd.read_csv(burgess_dir / Path('msds_dvel_by_wait.csv')
     mscd_unbound_only.set_index(condition_cols, inplace=True)
     mslow = mscd_unbound_only.loc['LYS2', :, 't0'].copy()
     mslow = mslow[mslow['delta'] > 0]
