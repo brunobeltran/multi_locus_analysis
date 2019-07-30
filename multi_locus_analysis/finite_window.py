@@ -725,12 +725,26 @@ def _double_up(x):
 
 def bars_given_cdf(x, cdf):
     """takes x, cdf from cdf_exact* functions and makes a plottable histogram
-    by tracing out the PDF. """
+    by tracing out the PDF. Works well for CDFs that come from observations on
+    a fixed grid, and not well for continuous observations. (i.e.
+    discrete_trajectory_to_wait_times output will work well, but not
+    state_changes_to_wait_times)."""
     if np.any(np.diff(x) == 0):
         raise ValueError('Values in x repeated!')
     pmf = np.diff(cdf)/np.diff(x)
     # tested by inspection
     return _double_up(x)[1:-1], _double_up(pmf)
+
+def smooth_pdf(x, cdf, bw_method=None):
+    """Takes x, cdf from cdf_exact* and returns a kernel density estimator that
+    can be evaluated at any X to get an estimate of pdf(X).
+
+    use bw_method to specify the way scipy.stats.gaussian_kde should determine
+    the bandwidth of the gaussian. """
+    Dcdf = np.diff(cdf)
+    Dx = x[1:]
+    return scipy.stats.gaussian_kde(Dx, weights=Dcdf,
+                                    bw_method=bw_method)
 
 def simultaneous_confint_from_cdf(alpha, n_samples, x, cdf):
     return binom.multinomial_proportions_confint(n_samples*np.diff(cdf),
