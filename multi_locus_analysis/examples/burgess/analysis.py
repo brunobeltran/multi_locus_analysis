@@ -4,6 +4,7 @@ else."""
 from . import *
 
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
+import scipy
 
 def alpha_fit():
     """We notice from bplot.mscds_by_meiotic_stage that some of the t0 times
@@ -28,14 +29,14 @@ def alpha_fit():
 
     CONCLUSION: :math:`alpha` is something like 0.2.
     """
-    mscd_unbound_only = pd.read_csv(burgess_dir / Path('msds_dvel_by_wait.csv')
+    mscd_unbound_only = pd.read_csv(burgess_dir / Path('msds_dvel_by_wait.csv'))
     mscd_unbound_only.set_index(condition_cols, inplace=True)
     mslow = mscd_unbound_only.loc['LYS2', :, 't0'].copy()
     mslow = mslow[mslow['delta'] > 0]
     mslow = mslow[mslow['delta'] < 800]
     sp = mslow.loc['LYS2', 'SP', 't0']
     wt = mslow.loc['LYS2', 'WT', 't0']
-    return [scipy.stats.linregress(np.log10(d['delta']), np.log10(d['mean'])),
+    return [scipy.stats.linregress(np.log10(d['delta']), np.log10(d['mean']))
             for d in [sp, wt]]
 
 def get_confinement_values_by_hand():
