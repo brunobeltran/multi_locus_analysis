@@ -64,6 +64,8 @@ MSDs to the small side).
 
 from . import *
 
+import scipy.special
+
 from pathlib import Path
 
 def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
@@ -141,7 +143,7 @@ msd_args = {
                          'traj_group': cell_cols + ['spot', 'wait_id'],
                          'mscd': False},
 }
-def precompute_msds():
+def precompute_msds(prefix=burgess_dir, force_redo=False):
     """Precomputes a bunch of different "MS(C)Ds"
 
     The various types of MSDs described in the module documentation can be
@@ -172,9 +174,9 @@ def precompute_msds():
 
     """
     for name, kwargs in msd_args.items():
-        kwargs['vel_file'] = name + '.csv'
-        msd_file = burgess_dir / Path('msds_' + name + '.csv')
-        if not Path(msd_file).exists():
+        kwargs['vel_file'] = prefix / Path(name + '.csv')
+        msd_file = prefix / Path('msds_' + name + '.csv')
+        if not Path(msd_file).exists() or force_redo:
             msds = msd(**kwargs)
             msds.to_csv(msd_file)
 
