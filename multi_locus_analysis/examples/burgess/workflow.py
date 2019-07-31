@@ -35,7 +35,7 @@ def make_all_intermediates(prefix=burgess_dir, force_redo=False):
     else:
         # cvv_stats['t'] *= 30
         # cvv_stats['delta'] *= 30
-        cvv_fits = cvv_stats.groupby(movie_cols).apply(get_best_fit_fixed_beta, bounds=([0.1, 1], [2, 173]))
+        cvv_fits = cvv_stats.groupby(movie_cols).apply(get_best_fit_fixed_beta, p0=(1, 250), bounds=([0.1, 30], [2, 1500]))
         cvv_fits = cvv_fits.apply(pd.Series)
         cvv_fits.to_csv(cvv_fits_file)
     waitdf_file = prefix / Path('waitdf.csv')

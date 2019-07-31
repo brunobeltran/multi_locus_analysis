@@ -111,7 +111,7 @@ def add_foci(df):
     return df
 
 def replace_na(df):
-    """Assuming we have add_foci'd, we don't need to artificially set the
+    """Assuming we have add_foci'd, we don't *need* to artificially set the
     second trajectory's values to NaN, so undo that here."""
     # apparently this doesn't work
     # df.loc[np.isnan(df['X2']), ['X2', 'Y2', 'Z2']]
