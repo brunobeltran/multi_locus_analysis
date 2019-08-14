@@ -206,6 +206,27 @@ def moments(df, cols=None, ns=[0,1,2]):
     df.rename_axis('Moment', axis='columns', inplace=True)
     return df.T.unstack()
 
+def convex_hull(df, dxcol='x', dycol='y', dzcol=None, tcol='t', allowed_t=None,
+               max_t=None):
+    """Compute the convex hull of a trajectory
+
+    For a DataFrame containing a trajectory with (X,[Y,[Z]]) values in `dxcol`,
+    `dycol`, and `dzcol` (respectively), use scipy.spatial.ConvexHull (uses
+    "QHull" under the hood) to calculate the convex hull (including
+    area/volume), optionally only looking at certain times along the
+    trajectory.
+
+    2D by default (dxcol='x', dycol='y')."""
+    cols = [x for x in [dxcol, dycol, dzcol] if x is not None]
+    good_ix = ~np.isnan(df[dxcol])
+    if allowed_t is not None:
+        good_ix = good_ix & np.isin(df[tcol], allowed_t)
+    if max_t is not None:
+        good_ix = good_ix & (df[tcol] <= max_t)
+    points = df[cols].values
+    return scipy.spatial.ConvexHull(points)
+
+
 # end Apply to groupby'd DataFrame
 ###############}}}
 
