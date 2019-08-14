@@ -190,7 +190,7 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
     return df
 
 @bruno_util.random.strong_default_seed
-def ab_window(rands, window_size, offset, num_replicates=1,
+def ab_window(rands, window_size, offset, num_replicates=1, states=[0,1],
               seed=None, random_state=None):
     r"""Simulate an asynchronous two-state system from time 0 to `window_size`.
 
@@ -219,6 +219,8 @@ def ab_window(rands, window_size, offset, num_replicates=1,
     offset : float
         The (negative) time at which to start (in state 0) in order to equilibrate teh
         simulation state by time t=0.
+    states : (2,) array_like
+        the "names" of each state, default to [0,1]
     num_replicates : int
         Number of times to run the simulation, default 1.
     seed : Optional[int]
@@ -242,8 +244,10 @@ def ab_window(rands, window_size, offset, num_replicates=1,
         offset = -offset
 
     pool_size_guess = int(np.abs(offset)*num_replicates)
-    rands = [bruno_util.random.make_pool(rand, pool_size_guess, random_state=state)
+    rands = [bruno_util.random.make_pool(rand, pool_size_guess, random_state=random_state)
              for rand in rands]
+    # set aside state names to convert from 0,1 all at once later
+    state_names = np.array(states)
 
     start_times = []
     end_times = []
@@ -259,14 +263,14 @@ def ab_window(rands, window_size, offset, num_replicates=1,
         r = rands[sim_state]()
         while t + r < 0:
             t += r
-            sim_state += 1
+            sim_state = 1 - sim_state
             r = rands[sim_state]()
         states[i].append(sim_state)
         start_times[i].append(t)
         while t + r <= window_size:
             t += r
             end_times[i].append(t)
-            sim_state += 1
+            sim_state = 1 - sim_state
             r = rands[sim_state]()
             states[i].append(sim_state)
             start_times[i].append(t)
@@ -275,6 +279,7 @@ def ab_window(rands, window_size, offset, num_replicates=1,
     end_times = np.concatenate([np.array(ts) for ts in end_times])
     replicate_ids = np.concatenate([i*np.ones_like(ts) for i, ts in enumerate(states)])
     states = np.concatenate([np.array(ss) for ss in states])
+    states = state_names[states]
     df = pd.DataFrame.from_dict({'replicate': replicate_ids, 'state': states,
                                  'start_time': start_times, 'end_time': end_times})
     df['window_start'] = 0

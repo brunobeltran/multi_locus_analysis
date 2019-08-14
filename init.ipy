@@ -1,4 +1,4 @@
-%matplotlib qt5
+%matplotlib
 import importlib
 
 import seaborn as sns
@@ -15,9 +15,9 @@ from multi_locus_analysis import plotting
 from multi_locus_analysis import fitting
 from multi_locus_analysis import analytical
 
-from multi_locus_analysis.examples import burgess
-from multi_locus_analysis.examples import garcia
+# from multi_locus_analysis.examples import burgess
+# from multi_locus_analysis.examples import garcia
 
-N = 2*garcia.chrom_len*garcia.bp_to_nm
-n1 = N - (N/2 - garcia.loc*garcia.bp_to_nm)
-b = garcia.kuhn_length
+# N = 2*garcia.chrom_len*garcia.bp_to_nm
+# n1 = N - (N/2 - garcia.loc*garcia.bp_to_nm)
+# b = garcia.kuhn_length

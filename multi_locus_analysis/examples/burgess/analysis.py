@@ -27,7 +27,7 @@ def alpha_fit():
     So we conclude that it's the LYS2, t0 trajectories that are so "slow". Fit
     their MSCD curves in the linear regime (0, 800)-ish by eye.
 
-    CONCLUSION: :math:`alpha` is something like 0.2.
+    CONCLUSION: :math:`beta` is something like 0.2.
     """
     mscd_unbound_only = pd.read_csv(burgess_dir / Path('msds_dvel_by_wait.csv'))
     mscd_unbound_only.set_index(condition_cols, inplace=True)
