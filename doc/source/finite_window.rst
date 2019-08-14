@@ -259,3 +259,157 @@ times are corrected with our method.
 
 .. TODO : finish
 
+Theoretical Details
+-------------------
+
+The following section contains a complete derivation of the framework used to
+generate the corrections used in this module.
+
+Motivating (A)synchronicity
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+We first motivate our definition of "(a)synchronicity", the critical property
+that allows us to correct for the effects of observing in a finite window.
+
+Suppose a process starts at :math:`-t_\text{inf}` (WLOG, assume it starts in
+state :math:`A`). For times after :math:`-t_\text{inf} \lll 0`, the process switches
+between states :math:`A` and :math:`B`. The distribution of times spent in each
+state before switching are IID, and distributed like :math:`f_A(t)` and
+:math:`f_B(t)`, respectively. We then are able to observe the process during the
+interval of time :math:`[0, T]`.
+
+.. image:: images/waiting-time-base-diagram.svg
+    :width: 400
+    :alt: pictoral representation of the renewal process described above
+
+This can be thought of as a renewal(-reward) process that started far in the
+past. As long as the starting point, :math:`-t_\text{inf}`, is sufficiently far
+in the past, and the distributions :math:`f_*(t)` have finite variance, various
+convenient properties hold true for the observed state switching times between
+:math:`0` and :math:`T`. We use the same example as in the "tutorial" section in
+what follows.
+
+.. plot::
+    :nofigs:
+    :context: close-figs
+    >>> import scipy.stats
+    >>> from multi_locus_analysis import finite_window as fw
+    >>> e44 = scipy.stats.expon(scale=4, loc=4)
+    >>> e16 = scipy.stats.expon(scale=6, loc=1)
+    >>> trajs = fw.ab_window([e44.rvs, e16.rvs], window_size=20, offset=-1000,
+    >>>     num_replicates=10000, states=['exp(4,4)', 'exp(1,6)'])
+
+
+The first convenient property is that the switching times are uniformly
+distributed within the observation interval (as
+:math:`-t_\text{inf}\to-\infty`). Intuitively, this just means that
+:math:`-t_\text{inf}` is far enough in the past that, independently of the
+distribution, we are not biased towards the switching times being early or late
+in our observation interval (i.e. we have lost all memory of the "real" start
+time).
+
+.. plot::
+    :context:
+    >>> plt.figure(figsize=[4,3])
+    >>> plt.hist(trajs['start_times'].values, 100)
+    >>> plt.xlim([0, 20])
+    >>> plt.xlabel('Rate of "creation of left ends"')
+
+Now let's label the observed state switches as :math:`t_0,\ldots{},t_{n-1}`,
+with :math:`t_0` and :math:`t_n` corresponding to the "actual" (unobserved)
+state switch times flanking the observation interval.
+The next useful property is that the start of the observation interval
+(:math:`t=0`) is uniformly distributed within :math:`[t_0, t_1]` (similarly, the
+end of the observation interval, :math:`t=T`, is uniformly distributed in
+:math:`[t_{n-1}, t_n]`.
+
+.. plot::
+    :context: close-figs
+    >>> plt.figure(figsize=[4,3])
+    >>> t01 = trajs[trajs['start_time'] < 0]
+    >>> u = -t01['start_time']/(t01['end_time'] - t01['start_time'])
+    >>> plt.hist(u, 100)
+    >>> plt.xlabel('Fraction of way between state changes at $t=0$.')
+
+For the interior times, we can simply use the first fact to derive our interior
+time correction. Since we know the starting times of each state are uniformly
+distributed, we immediately can tell that if a waiting time of length
+:math:`\tau` has a start time within the interval, then the the fraction of
+times that this waiting time will end up being an interior time is just
+:math:`(T - \tau)/T`. More precisely, we have that
+
+.. math::
+
+    P(t_{i+1} \leq T | t_{i+1}-t_i=\tau, t_i \in [0,T]) = \int_0^T 1_{t_i + \tau
+    \leq T} f_{\text{Unif}[0,T]}(t_i) dt_i
+
+which is just equal to :math:`(T - \tau)/T`.
+
+This correction factor can be visualized easily as simply counting what fraction
+of "start" times of a given length lead to "end" times still inside the
+interval. Namely, it's the green part of the interval in the following diagram:
+
+.. image:: images/waiting-time-censored-fraction.svg
+    :width: 400
+    :alt: pictoral demonstration of equation above
+
+On the other hand, we have to be careful about the distribution of exterior
+times, even if we do somehow magically have the values
+of :math:`t_0` and the state at :math:`t=0`. You can't simply assume that
+:math:`t_1 - t_0` is distributed like :math:`f_A(t)` or :math:`f_B(t)`. After
+all, in fact it is distributed like :math:`tf_*(t)`. This is because (loosely
+speaking) if you fill the real line with a bunch of intervals whose lengths are
+distributed like :math:`f(t)`, then you choose a point on the real line at
+random, you are more likely to land in an interval of size :math:`t` the longer
+that :math:`t` is.
+
+.. plot::
+    :context: close-figs
+    >>> plt.figure(figsize=[4,3])
+    >>> a1 = t01[t01['state'] == 'exp(4,4)']
+    >>> x, cdf = fw.ecdf(a1['end_time'] - a1['start_time'])
+    >>> kernel = fw.smooth_pdf(x, cdf)
+    >>> plt.plot(x, kernel(x), label=r'$\hat{f}(t)$: Observed CDF of $t_1 - t_0$')
+    >>> plt.plot(x, e44.pdf(x), label=r'$f(t)$: Actual CDF of exp(4,4)')
+    >>> Z = scipy.integrate.quad(lambda x: x*e44.pdf(x), 0, np.inf)
+    >>> plt.plot(x, x*e44.pdf(x)/Z[0], label=r'$t f(t)/\int_0^\infty t f(t) dt$')
+    >>> plt.legend()
+
+(A)synchronicity
+^^^^^^^^^^^^^^^^
+
+While the explicit framework presented above is a useful tool, it is ill-defined
+for heavy-tailed processes, in which we are primarily concerned when making
+these types of corrections. In order to retain the useful properties of the
+system that made it possible to derive the interior and exterior times
+distributions, we simply notice that the *real* property that we want to be true
+when measuring these systems is *asynchronicity*, or what a physicist might call
+"symmetry under time translations" or "time homogeneity". In short, we want to
+impose the constraint that we are only interested in scientific measurements
+where changing the interval of observation :math:`[0, T]` to
+:math:`[0+\tau,T+\tau]` for any :math:`\tau` will not change any properties of
+the measurement.
+
+.. note::
+
+    We leave as an exercise to the reader to show that:
+
+    1. the renewal process of the previous section is a special case of an asynchronous process
+    2. this definition of asynchronicity produces all three properties we demonstrated for our renewal process above
+
+On the other extreme from asynchronicity is the situation in which the
+Meier-Kaplan correction was originally designed to be used. Namely, we could
+imagine that a perfectly *synchronous* process is one where :math:`t_0` is fixed
+to be at time :math:`t=0`, meaning that :math:`t_1 - t_0` is distributed as just
+:math:`f_*(t)`.
+
+While in principle anything between asynchrony and synchrony is possible, it is
+true in general that almost all scientific measurements area already done using
+either purely synchronous or asynchronous systems, since it is intuitively clear
+that a lack of understanding of the synchronicity of one's system can lead to
+uninterpretable results.
+
+Laplace Formalism
+^^^^^^^^^^^^^^^^^
+
+
