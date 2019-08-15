@@ -15,7 +15,7 @@ def fit_full_fix_beta(tdelta, A, tDeltaN, beta=0.5):
 def get_best_fit_fixed_beta(df, t_col='t', delta_col='delta',
                             cvv_col='cvv_normed',
                             ste_col='ste', p0=[1, 10], bounds=([0, 1.5], [10, 1000]),
-                            counts_col=None, hack=False):
+                            counts_col=None, beta=0.5, hack=False):
     """beta = alpha/2"""
     x = np.stack((df[t_col].values, df[delta_col].values))
     y = df[cvv_col].values
@@ -41,7 +41,7 @@ def get_best_fit_fixed_beta(df, t_col='t', delta_col='delta',
     # accuracy to go below a single frame (i.e. tDeltaN = 30)
     # A bounds empirically determined
     (A, tDeltaN), pcov = scipy.optimize.curve_fit(fit_full_fix_beta, xdata=x,
-            ydata=y, p0=p0, bounds=bounds)
+            ydata=y, p0=p0, bounds=bounds, kwargs={'beta': beta})
     # (A, tDeltaN), pcov = scipy.optimize.curve_fit(fit_full_fix_beta, xdata=x,
     #         ydata=y, p0=p0, sigma=sigma, bounds=([0, 1.5], [10, 1000]))
     if hack:

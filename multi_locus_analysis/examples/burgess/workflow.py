@@ -29,15 +29,35 @@ def make_all_intermediates(prefix=burgess_dir, force_redo=False):
         cvv_stats = vvc_stats_by_hand(all_vvc_file, movie_cols)
         cvv_stats = cvv_by_hand_make_usable(cvv_stats, movie_cols)
         cvv_stats.to_csv(cvv_stats_file)
+    # also compute correlation grouping across experimental replicates
+    cvv_stats_cond_file = prefix / Path('cvv_stats_cond.csv')
+    if cvv_stats_cond_file.exists() and not force_redo:
+        cvv_stats_cond = pd.read_csv(cvv_stats_cond_file)
+    else:
+        cvv_stats_cond = vvc_stats_by_hand(all_vvc_file, condition_cols)
+        cvv_stats_cond = cvv_by_hand_make_usable(cvv_stats_cond, condition_cols)
+        cvv_stats_cond.to_csv(cvv_stats_cond_file)
+    # finally, fit the velocity correlation to rouse theory. for setting of
+    # beta, see burgess.analysis.alpha_fit(). A is a non-parameter (cause
+    # normalized cvv to 1 at t=0). tDeltaN is set to be inside the measurable
+    # range (30s == 1 frame, 1500s == full movie).
     cvv_fits_file = prefix / Path('cvv_fits.csv')
     if cvv_fits_file.exists() and not force_redo:
         cvv_fits = pd.read_csv(cvv_fits_file)
     else:
-        # cvv_stats['t'] *= 30
-        # cvv_stats['delta'] *= 30
-        cvv_fits = cvv_stats.groupby(movie_cols).apply(get_best_fit_fixed_beta, p0=(1, 250), bounds=([0.1, 30], [2, 1500]))
+        cvv_fits = cvv_stats.groupby(movie_cols).apply(get_best_fit_fixed_beta,
+                p0=(1, 250), bounds=([0.1, 30], [2, 1500]), beta=0.26)
         cvv_fits = cvv_fits.apply(pd.Series)
         cvv_fits.to_csv(cvv_fits_file)
+    # do the same thing, but without separating each experiment separately
+    cvv_fits_cond_file = prefix / Path('cvv_fits_cond.csv')
+    if cvv_fits_cond_file.exists() and not force_redo:
+        cvv_fits_cond = pd.read_csv(cvv_fits_cond_file)
+    else:
+        cvv_fits_cond = cvv_stats.groupby(movie_cols).apply(get_best_fit_fixed_beta,
+                p0=(1, 250), bounds=([0.1, 30], [2, 1500]), beta=0.26)
+        cvv_fits_cond = cvv_fits_cond.apply(pd.Series)
+        cvv_fits_cond.to_csv(cvv_fits_cond_file)
     waitdf_file = prefix / Path('waitdf.csv')
     if waitdf_file.exists() and not force_redo:
         waitdf = pd.read_csv(waitdf_file)
@@ -45,5 +65,5 @@ def make_all_intermediates(prefix=burgess_dir, force_redo=False):
         waitdf = df_flat.groupby(cell_cols).apply(discrete_trajectory_to_wait_times, t_col='t', state_col='foci')
         waitdf.to_csv(waitdf_file)
 
-    return all_vel, cvv_fits, waitdf, msds_movies
+    return all_vel, cvv_fits_cond, cvv_fits, waitdf
 
