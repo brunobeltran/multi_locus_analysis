@@ -162,16 +162,21 @@ def vel_to_pos(vel, dxcol='vx', dycol='vy', framecol='tf'):
     df.index.name = 't'
     return df
 
-def all_vel_to_corr(vel, dxcol='vx', dycol='vy', framecol='tf',
+def all_vel_to_corr(vel, dxcol='vx', dycol='vy', dzcol=None, framecol='tf',
         max_dt=None, max_t_over_delta=4, allowed_dts=None):
     """
     >>> all_vel.reset_index(level=pandas_util.multiindex_col_ix(all_vel, 'ti'), inplace=True)
     """
     t = vel[framecol]
     dx = vel[dxcol]
-    dy = vel[dycol]
     # cvv[i,j] = dx[i]*dx[j] + dy[i]*dy[j], so all n^2 dot products
-    cvv = dx[None,:]*dx[:,None] + dy[None,:]*dy[:,None]
+    cvv = dx[None,:]*dx[:,None]
+    if dycol is not None:
+        dy = vel[dycol]
+        cvv = cvv + dy[None,:]*dy[:,None]
+    if dzcol is not None:
+        dz = vel[dzcol]
+        cvv = cvv + dz[None,:]*dz[:,None]
     tau = t[None,:] - np.zeros_like(t[:,None])
     dts = t[None,:] - t[:,None]
     good_ix = dts >= 0
