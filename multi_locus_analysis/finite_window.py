@@ -82,7 +82,9 @@ from bruno_util import pandas_util
 @bruno_util.random.strong_default_seed
 def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
                    seed=None, random_state=None):
-    """Simulate a two-state system switching between states A and B.
+    """WARNING: BUGGY! Needs to use t*f(t) for first time. Doesn't.
+
+    Simulate a two-state system switching between states A and B.
 
     In addition to functions that can generate random waiting times for each
     state, this "fast" version of the code requires the
@@ -723,6 +725,15 @@ def ecdf_windowed(times, window_sizes, times_allowed=None,
         x = np.insert(x, 0, pad_left_at_x)
         cdf = np.insert(cdf, 0, 0)
     return x, cdf
+
+def ecdf_simple(waits, T, pad_left_at_x=0):
+    """cdf of interior times (ts > 0) observed in window of size T"""
+    ts, counts = np.unique(waits, return_counts=True)
+    i = np.argsort(ts)
+    ts = ts[i]
+    counts = counts[i]
+    weights = T/(T - ts)
+    return np.insert(ts, 0, pad_left_at_x), np.insert(np.cumsum(counts*weights), 0, 0)/len(weights)
 
 def _double_up(x):
     """[1,2,3] to [1,1,2,2,3,3]"""
