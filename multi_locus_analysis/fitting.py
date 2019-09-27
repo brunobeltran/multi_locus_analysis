@@ -1,5 +1,5 @@
 """For fitting analytical theory to multi_locus_analysis results"""
-from .analytical import vvc_normalized_theory
+from wlcsim.analytical.fractional import vvc_normalized_theory
 
 import numpy as np
 import scipy

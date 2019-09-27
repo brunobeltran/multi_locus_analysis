@@ -1,5 +1,6 @@
 """For plotting multi_locus_analysis results"""
-from .analytical import vvc_normalized_theory
+from wlcsim.analytical.fractional import vvc_normalized_theory
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl

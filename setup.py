@@ -34,5 +34,5 @@ setup(name='multi_locus_analysis',
       keywords='microscopy diffusion scientific',
       url='https://github.com/brunobeltran/multi_locus_analysis',
       install_requires=['bruno_util', 'matplotlib', 'numpy', 'scipy', 'pandas',
-                        'seaborn', 'mpmath', 'statsmodels'],
+                        'seaborn', 'mpmath', 'statsmodels', 'wlcsim'],
 )
