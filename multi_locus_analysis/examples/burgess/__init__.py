@@ -110,6 +110,26 @@ def add_foci(df):
     df['foci'] = foci_col
     return df
 
+def pixels_to_units(df):
+    """Keep track of necessary conversions into real units. For now all
+    data was collected with Z-stacks where pixels in the X,Y plane have a
+    "real" width of 0.13333 um/pixels, whereal the z-stacks are spaced at
+    0.25um intervals. The df_xyz file has units of "pixels/10"
+
+    In the future, Trent will want to add code here to make sure that other
+    movies with different pixel sizes can be compared directly to old
+    experiments.
+    """
+    x_pix_to_um = 0.13333
+    y_pix_to_um = 0.13333
+    z_pix_to_um = 0.25
+    df['X1'] *= 10*x_pix_to_um
+    df['Y1'] *= 10*y_pix_to_um
+    df['Z1'] *= 10*z_pix_to_um
+    df['X2'] *= 10*x_pix_to_um
+    df['Y2'] *= 10*y_pix_to_um
+    df['Z2'] *= 10*z_pix_to_um
+
 def replace_na(df):
     """Assuming we have add_foci'd, we don't *need* to artificially set the
     second trajectory's values to NaN, so undo that here."""
@@ -170,6 +190,7 @@ def munge_data(df):
     cols[6] = 't'
     df.columns = cols
     del cols
+    pixels_to_units(df)
     df = replace_na(df)
     df.set_index(frame_cols, inplace=True)
     df = df.groupby(cell_cols).apply(breakup_by_na)
