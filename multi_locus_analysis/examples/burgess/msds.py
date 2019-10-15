@@ -69,7 +69,7 @@ import scipy.special
 from pathlib import Path
 
 def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
-        groups=condition_cols, vel_file=None):
+        groups=condition_cols, vel_file=None, **kwargs):
     """Catch-all function to compute the various versions of the MSD curves
     that you might want to investigate. In particular, see Notes below for how
     to compute all (a)-(g) versions of the MS(C)Ds described in the module
@@ -110,7 +110,8 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
             z = 'd'+z
     all_vel = df \
             .groupby(traj_group) \
-            .apply(pos_to_all_vel, xcol=x, ycol=y, zcol=z, framecol='t')
+            .apply(pos_to_all_vel, xcol=x, ycol=y, zcol=z, framecol='t',
+                   **kwargs)
     absv2 = np.power(all_vel['vx'], 2)
     absv2 += np.power(all_vel['vy'], 2)
     if include_z:
