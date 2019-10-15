@@ -9,9 +9,12 @@ import datetime
 import numpy as np
 import pandas as pd
 
+from bruno_util import numpy as bnp
 from wlcsim.bd import rouse
 from pscan import Scan
 
+N = int(1e2+1); L = 17475; R = 1000; b = 15; D = 2e7 # ChrV
+ura3_bead = 20;
 
 def run_interior_sim(FP):
     """for various different "connectivities" (fraction of beads "homolog
@@ -19,17 +22,23 @@ def run_interior_sim(FP):
     probabilities that are comparable to the experiment."""
 
     # FP = 0.1 # fraction loci homolog paired
-    N = int(1e2+1); L = 17475; R = 1000; b = 15; D = 2e7 # ChrV
     dt = rouse.recommended_dt(N, L, b, D)
     Aex = 100; # strength of force confining beads within nucleus
     tether_list = np.array([]).astype(int) # no tethered loci
 
     # now define the time grid on which to run the BD, and specify which of those times to save
 
+    # 10 repeats each of FP=[0, 0.02, 0.05, 0.1] on one 32 core node takes about
+    # ~1min to run for Nt=1e5,
+    # ~14min for Nt=1e6
+    # ~3.2hrs for Nt=1e7
+    # TBD for Nt=1e8
     Nt = 1e8; # total number of equi-space time steps, about 2500s
     t = np.arange(0, Nt*dt, dt) # take Nt time steps
-    i30 = np.argmin(np.abs(t - 30)) # index at "30s"
-    t_save = t[0::i30] # save every 30s
+    t_i, i_i = bnp.loglinsample(Nt, 1e3, 0.43) # contains ~30,60,90,etc
+    # i30 = np.argmin(np.abs(t - 30)) # index at "30s"
+    # t_save = t[0::i30] # save every 30s
+    t_save = t[t_i]
 
     # now run the simulation
     tether_list, loop_list, X = rouse.rouse_homologs(N, FP, L, b, D, Aex, R, R, R, t, t_save, tether_list)
@@ -88,12 +97,69 @@ def save_interior_sim(p):
     df = run_interior_sim(FP)
     df.to_csv(sim_dir / Path('all_beads.csv'))
 
-def get_bead_df(dir):
-    pass
+def get_bead_df(base_dir):
+    base_dir = Path(base_dir)
+    dfs = []
+    for sim in base_dir.glob('homolog-sim.*'):
+        df = pd.read_csv(sim / Path('all_beads.csv'), index_col=0)
+        df['sim_name'] = sim
+        dfs.append(df[df['bead'] == ura3_bead])
+        dfs[-1].to_csv(sim / Path('ura3.csv'))
+    df = pd.concat(dfs, ignore_index=True)
+    df = df.set_index(['FP', 'sim_name', 'bead', 't'])
+    df = df.sort_index()
+    df.to_csv(base_dir / Path('all_ura3.csv'))
+    return df
 
-if __name__ == '__main__':
+def select_exp_times(base_dir, Nt=1e8, t=None):
+    base_dir = Path(base_dir)
+    ura3_file = base_dir / Path('all_ura3.csv')
+    if not ura3_file.exists():
+        df = get_bead_df(base_dir)
+    else:
+        df = pd.read_csv(ura3_file)
+    # # find the ones that look like experiment times
+    # desired_t = np.arange(0, 1501, 30)
+    # sim_t = df['t'].unique()
+    # err = np.array([np.min(ti - sim_t) for ti in desired_t])
+    # for now instead just use the biggest available step size
+    with open(base_dir / 'i_i.pkl', 'rb') as f:
+        i_i = pickle.load(f)
+    # use the spacing that's biggest while still having enough samples
+    i_i_i = np.where([len(i) > 50 for i in i_i])[0][-1]
+    if t is None:
+        # we've used same dt for all simulations so far
+        t = np.arange(0, Nt*dt, dt) # so use global value by default
+    df_exp = df[np.isin(df['t'], t[t_i[i_i[i_i_i]]])]
+    return df_exp
+
+def add_paired_cols(df, paired_distances=None):
+    if paired_distances is None:
+        paired_distances = [10, 50, 100, 250, 500, 750, 1000]
+    df['dX'] = np.sqrt(
+            np.power(df['X2'] - df['X1'], 2)
+            + np.power(df['Y2'] - df['Y1'], 2)
+            + np.power(df['Z2'] - df['Z1'], 2)
+    )
+    for dist in paired_distances:
+        df['pair' + str(dist)] = df['dX'] < dist
+    return df
+
+def get_interior_times(df):
+    waitdf = df.groupby(['FP', 'sim_name']).apply(mla.finite_window.discrete_trajectory_to_wait_times, t_col='t', state_col='pair250')
+    def interior(df):
+        return df.reset_index().iloc[1:-1]
+    waitdf = waitdf.groupby(['FP', 'sim_name']).apply(interior)
+    # for some reason the index gets duplicated (reset_index above makes easier
+    # to delete duplicated columns, since del is easier than droplevel)
+    # waitdf.index = waitdf.index.droplevel(0)
+    del waitdf['FP']
+    del waitdf['sim_name']
+    return waitdf
+
+def run_homolog_param_scan():
     # save each run of this script in a unique directory
-    base_name = './homolog-sim/no-tether'
+    base_name = './homolog-sim/shortish-no-tether'
     run_num = 0
     while True:
         # as long as the OS is sane, only one thread can successfully mkdir
@@ -106,11 +172,11 @@ if __name__ == '__main__':
             run_num = run_num + 1
 
     # set up parameters (FP, tether lists, output directories)
-    params = {'FP': [0.2],
+    params = {'FP': [0, 0.02, 0.05, 0.1],
               'tether_list': [np.array([]).astype(int)],
               'output_dir': [base_dir]}
     scan = Scan(params)
-    scan.add_count(lambda p: 100)
+    scan.add_count(lambda p: 10)
 
     # set up multiprocessing
     num_cores = multiprocessing.cpu_count() - 1
@@ -128,3 +194,6 @@ if __name__ == '__main__':
     #     save_interior_sim(params)
     #     print(script_name + ": " + datetime.datetime.now().isoformat()
     #           + ": completed run with params: " + str(params))
+
+if __name__ == '__main__':
+    run_homolog_param_scan()
