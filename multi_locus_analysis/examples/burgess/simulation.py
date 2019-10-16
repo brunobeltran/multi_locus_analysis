@@ -13,7 +13,10 @@ from bruno_util import numpy as bnp
 from wlcsim.bd import rouse
 from pscan import Scan
 
+from ... import finite_window as fw
+
 N = int(1e2+1); L = 17475; R = 1000; b = 15; D = 2e7 # ChrV
+dt = rouse.recommended_dt(N, L, b, D)
 ura3_bead = 20;
 
 def run_interior_sim(FP):
@@ -22,7 +25,6 @@ def run_interior_sim(FP):
     probabilities that are comparable to the experiment."""
 
     # FP = 0.1 # fraction loci homolog paired
-    dt = rouse.recommended_dt(N, L, b, D)
     Aex = 100; # strength of force confining beads within nucleus
     tether_list = np.array([]).astype(int) # no tethered loci
 
@@ -146,7 +148,7 @@ def add_paired_cols(df, paired_distances=None):
     return df
 
 def get_interior_times(df):
-    waitdf = df.groupby(['FP', 'sim_name']).apply(mla.finite_window.discrete_trajectory_to_wait_times, t_col='t', state_col='pair250')
+    waitdf = df.groupby(['FP', 'sim_name']).apply(fw.discrete_trajectory_to_wait_times, t_col='t', state_col='pair250')
     def interior(df):
         return df.reset_index().iloc[1:-1]
     waitdf = waitdf.groupby(['FP', 'sim_name']).apply(interior)
@@ -155,6 +157,14 @@ def get_interior_times(df):
     # waitdf.index = waitdf.index.droplevel(0)
     del waitdf['FP']
     del waitdf['sim_name']
+    # also because we're using floating times, we need to de-duplicate
+    # choose TOL  to be two more decimal points than dt, about
+    TOL = dt/1e2
+    wtimes = np.sort(waitdf['wait_time'].unique().copy())
+    diff = np.append(True, np.diff(wtimes))
+    wtimes = wtimes[diff > TOL]
+    for uniq_time in wtimes:
+        waitdf.loc[np.isclose(waitdf['wait_time'], uniq_time), 'wait_time'] = uniq_time
     return waitdf
 
 def run_homolog_param_scan():
