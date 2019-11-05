@@ -111,7 +111,7 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
     if dims is None:
         dims = ['X', 'Y', 'Z'] if include_z else ['X', 'Y', None]
     if mscd:
-        dims = ['d' + x for x in dims]
+        dims = ['d' + x if x is not None else None for x in dims]
     all_vel = df \
             .groupby(traj_group) \
             .apply(pos_to_all_vel, xcol=dims[0], ycol=dims[1], zcol=dims[2],
@@ -135,8 +135,7 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
             /scipy.special.gamma((msds['count']-1)/2)
     return msds
 
-preset_msd_args_ = """
-    {
+preset_msd_args_ = """{
         'dvel': {'df': df_flat, 'mscd': True},
         'dvel_unp': {'df': df_flat[df_flat['foci'] == 'unp'], 'mscd': True},
         'dvel_unp_by_wait': {'df': df_flat[df_flat['foci'] == 'unp'],
