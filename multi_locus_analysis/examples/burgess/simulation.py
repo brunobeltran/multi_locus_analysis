@@ -170,8 +170,9 @@ def add_paired_cols(df, paired_distances=None):
         df['pair' + str(dist)] = df['dX'] < dist
     return df
 
-def get_interior_times(df):
-    waitdf = df.groupby(['FP', 'sim_name']).apply(fw.discrete_trajectory_to_wait_times, t_col='t', state_col='pair250')
+def get_interior_times(df, state_col='pair250', TOL=None):
+    waitdf = df.groupby(['FP', 'sim_name']).apply(
+            fw.discrete_trajectory_to_wait_times, t_col='t', state_col=state_col)
     def interior(df):
         return df.reset_index().iloc[1:-1]
     waitdf = waitdf.groupby(['FP', 'sim_name']).apply(interior)
@@ -182,13 +183,51 @@ def get_interior_times(df):
     del waitdf['sim_name']
     # also because we're using floating times, we need to de-duplicate
     # choose TOL  to be two more decimal points than dt, about
-    TOL = dt/1e2
+    if TOL is None:
+        TOL = dt/1e2
     wtimes = np.sort(waitdf['wait_time'].unique().copy())
     diff = np.append(True, np.diff(wtimes))
     wtimes = wtimes[diff > TOL]
     for uniq_time in wtimes:
         waitdf.loc[np.isclose(waitdf['wait_time'], uniq_time), 'wait_time'] = uniq_time
     return waitdf
+
+def plot_interior_times(waitdf):
+    fig_unpair = plt.figure()
+    for FP, data in waitdf.groupby('FP'):
+        paired = data[~data['wait_state']]
+        try:
+            x, cdf = fw.ecdf_windowed(paired['wait_time'].values, paired['window_size'].values, pad
+    _left_at_x=0)
+        except:
+            continue
+        xp, pdf = fw.bars_given_cdf(x, cdf)
+        plt.plot(xp, pdf, label='FP = ' + str(FP))
+    plt.yscale('log'); plt.xscale('log')
+    plt.xlabel('time (s)')
+    plt.ylabel('Probaility')
+    plt.legend()
+    plt.title('Unpaired PDFs')
+    Text(0.5, 1.0, 'Unpaired PDFs')
+
+    fig_pair = plt.figure()
+    for FP, data in waitdf.groupby('FP'):
+        paired = data[data['wait_state']]
+        try:
+            x, cdf = fw.ecdf_windowed(paired['wait_time'].values, paired['window_size'].values, pad_le
+    ft_at_x=0)
+        except:
+            continue
+        xp, pdf = fw.bars_given_cdf(x, cdf)
+        plt.plot(xp, pdf, label='FP = ' + str(FP))
+    plt.yscale('log'); plt.xscale('log')
+    plt.xlabel('time (s)')
+    plt.ylabel('Probaility')
+    plt.legend()
+    plt.title('Paired PDFs')
+
+    return fig_pair, fig_unpair
+
 
 def run_homolog_param_scan():
     # save each run of this script in a unique directory
