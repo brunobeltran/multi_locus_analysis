@@ -9,6 +9,7 @@ import pickle
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from bruno_util import numpy as bnp
 from wlcsim.bd import rouse
@@ -197,8 +198,7 @@ def plot_interior_times(waitdf):
     for FP, data in waitdf.groupby('FP'):
         paired = data[~data['wait_state']]
         try:
-            x, cdf = fw.ecdf_windowed(paired['wait_time'].values, paired['window_size'].values, pad
-    _left_at_x=0)
+            x, cdf = fw.ecdf_windowed(paired['wait_time'].values, paired['window_size'].values, pad_left_at_x=0)
         except:
             continue
         xp, pdf = fw.bars_given_cdf(x, cdf)
@@ -208,14 +208,12 @@ def plot_interior_times(waitdf):
     plt.ylabel('Probaility')
     plt.legend()
     plt.title('Unpaired PDFs')
-    Text(0.5, 1.0, 'Unpaired PDFs')
 
     fig_pair = plt.figure()
     for FP, data in waitdf.groupby('FP'):
         paired = data[data['wait_state']]
         try:
-            x, cdf = fw.ecdf_windowed(paired['wait_time'].values, paired['window_size'].values, pad_le
-    ft_at_x=0)
+            x, cdf = fw.ecdf_windowed(paired['wait_time'].values, paired['window_size'].values, pad_left_at_x=0)
         except:
             continue
         xp, pdf = fw.bars_given_cdf(x, cdf)
