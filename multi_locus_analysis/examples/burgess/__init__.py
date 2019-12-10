@@ -63,7 +63,6 @@ Data columns
 ``Z``
     z-coordinate of a loci
 """
-
 # required for importing data
 from ...dataframes import pivot_loci
 # for processing data
@@ -214,4 +213,11 @@ else:
     df.set_index(frame_cols + ['spot'], inplace=True)
     df_flat = pd.read_csv(df_flat_file)
     df_flat.set_index(frame_cols, inplace=True)
+
+# API
+from . import analysis
+from . import msds
+from . import plotting
+from . import simulation
+from . import workflow
 
