@@ -103,7 +103,7 @@ def traj_to_msds(traj, xcol='x', ycol='y', framecol='frame id'):
 
 def pos_to_all_vel(trace, xcol='x', ycol='y', zcol=None, framecol='i',
                    delta=None, delta_max=None, deltas=None,
-                   absolute_time=None, force_independence=False):
+                   fixed_dt=None, force_independence=False):
     """For getting displacement distributions for all possible deltas
     simultaneously.
 
@@ -111,22 +111,23 @@ def pos_to_all_vel(trace, xcol='x', ycol='y', zcol=None, framecol='i',
                 mla.pos_to_all_vel(df, xcol='dX', ycol='dY', framecol='tp.n'
         ))
 
+    fixed_dt should be the value of the fixed value of dt between consecutive
+    frames, if such a value exists
     """
     # framecol could feasibly be an index column of the dataframe, so we should
     # reset index just in case
     trace = trace.reset_index()
+
     t = trace[framecol]
-    x = trace[xcol]
-    y = trace[ycol]
-    if zcol is not None:
-        z = trace[zcol]
     ti = t[:,None] - np.zeros_like(t)[None,:]
     tf = t[None,:] - np.zeros_like(t)[:,None]
     dt = tf - ti
-    vx = x[None,:] - x[:,None]
-    vy = y[None,:] - y[:,None]
-    if zcol is not None:
-        vz = z[None,:] - z[:,None]
+
+    # always call output x, y, z, regardless of input
+    cols = {'x': xcol, 'y': ycol, 'z': zcol}
+    xs = {c: trace[col] for c, col in cols.items() if col is not None}
+    vs = {'v' + col: x[None,:] - x[:,None] for col, x in xs.items()}
+
     good_dt = dt >= 0
     if force_independence:
         i = np.arange(len(ti))
@@ -138,16 +139,17 @@ def pos_to_all_vel(trace, xcol='x', ycol='y', zcol=None, framecol='i',
         good_dt &= dt < delta_max
     if deltas is not None:
         good_dt &= np.isin(dt, deltas)
-    all_vel = {'ti': ti[good_dt], 'delta': dt[good_dt], 'tf': tf[good_dt],
-               'vx': vx[good_dt], 'vy': vy[good_dt]}
-    if zcol is not None:
-        all_vel['vz'] = vz[good_dt]
-    all_vel = pd.DataFrame(all_vel)
-    if absolute_time:
-        frames_to_sec = trace['frames_to_sec'].unique()
-        if len(frames_to_sec) != 1:
-            raise ValueError("You asked me to convert to absolute time, but there's not one unique frame_to_sec value")
-        all_vel['delta_abs'] = all_vel['delta']*frames_to_sec[0]
+
+    vs = {c: v[good_dt] for c, v in vs.items()}
+    vs.update({'ti': ti[good_dt], 'delta': dt[good_dt], 'tf': tf[good_dt]})
+    all_vel = pd.DataFrame(vs)
+    # if non-integer values are used here, we will likely need to do some
+    # rounding to make sure that values of delta taht are supposed to be equal
+    # actually are
+    if fixed_dt:
+        all_vel['delta'] /= fixed_dt
+        all_vel['delta'] = np.round(all_vel['delta'])
+        all_vel['delta'] *= fixed_dt
     all_vel.set_index(['ti', 'delta'], inplace=True)
     return all_vel
 

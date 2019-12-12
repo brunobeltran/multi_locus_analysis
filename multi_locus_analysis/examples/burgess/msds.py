@@ -117,12 +117,11 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
             .apply(pos_to_all_vel, xcol=dims[0], ycol=dims[1], zcol=dims[2],
                    framecol='t', **kwargs)
     vdims = ['vx', 'vy', 'vz'] # output of pos_to_all_vel always has these cols
+    vdims = [v for v in vdims if v in all_vel.columns]
     # accumulate vx^2 + vy^2 + vz^2 as directed by dims
-    absv2 = np.zeros_like(all_vel['vx'])
-    for i, dim in enumerate(dims):
-        if dim is None:
-            continue
-        absv2 += np.power(all_vel[vdims[i]], 2)
+    absv2 = np.zeros_like(all_vel[vdims[0]]) #tf col always exists
+    for vdim in vdims:
+        absv2 += np.power(all_vel[vdim], 2)
     all_vel['abs(v)'] = np.sqrt(absv2)
     if vel_file:
         all_vel.to_csv(vel_file)
