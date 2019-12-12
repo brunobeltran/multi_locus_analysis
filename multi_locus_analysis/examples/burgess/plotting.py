@@ -1,5 +1,6 @@
 """Some example plots with the existing code."""
 from . import *
+import bruno_util.plotting as bplt
 from bruno_util.plotting import cmap_from_list
 
 import matplotlib as mpl
@@ -46,4 +47,30 @@ def mscds_by_meiotic_stage():
     plt.colorbar(sm)
     # plt.legend()
 
-
+def per_cell_msd(msd, cond=None, skip=None, curve_count=10, tri_x0=None,
+                 tri_xhalf=None, **kwargs):
+    plt.figure()
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.xlabel('t (s)')
+    plt.ylabel('MSD ($\mu{}m^2$)')
+    curve_cols = ['exp.rep', 'cell']
+    if skip is None:
+        total_curves = len(msd.groupby(curve_cols).first())
+        skip = int(total_curves/curve_count)
+    if cond is not None:
+        plt.title('Per-Cell MSDs for Condition: ' + str(cond))
+    for i, (cell_id, data) in enumerate(msd.groupby(curve_cols)):
+        if not i % skip == 0:
+            continue
+        data = data.reset_index()
+        data = data[(data['delta'] > 0) & (data['mean'] > 0)]
+        data = data.sort_values('delta')
+        plt.errorbar(data['delta'], data['mean'], data['ste'], **kwargs)
+    #     plt.plot(data['delta'], data['mean'])
+    if tri_x0 is None:
+        tri_x0 = [30, 1.05]
+    if tri_xhalf is None:
+        tri_xhalf = [200, 0.67]
+    bplt.draw_power_law_triangle(alpha=0, x0=tri_x0, width=0.7, orientation='down', x0_logscale=False, label=r'$\alpha=0$')
+    bplt.draw_power_law_triangle(alpha=0.5, x0=tri_xhalf, width=0.7, orientation='down', x0_logscale=False, label=r'$\alpha=0.5$')

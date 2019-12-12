@@ -63,7 +63,6 @@ Data columns
 ``Z``
     z-coordinate of a loci
 """
-
 # required for importing data
 from ...dataframes import pivot_loci
 # for processing data
@@ -205,9 +204,20 @@ df_file = burgess_dir / Path('df.csv')
 df_flat_file = burgess_dir / Path('df_flat.csv')
 if not (df_file.exists() and df_flat_file.exists()):
     df, df_flat = munge_data(df_xyz)
+    df.sort_index(inplace=True)
     df.to_csv(df_file)
+    df_flat.sort_index(inplace=True)
     df_flat.to_csv(df_flat_file)
 else:
     df = pd.read_csv(df_file)
+    df.set_index(frame_cols + ['spot'], inplace=True)
     df_flat = pd.read_csv(df_flat_file)
+    df_flat.set_index(frame_cols, inplace=True)
+
+# API
+from . import analysis
+from . import msds
+from . import plotting
+from . import simulation
+from . import workflow
 

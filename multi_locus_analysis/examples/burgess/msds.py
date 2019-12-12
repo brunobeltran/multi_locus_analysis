@@ -69,18 +69,16 @@ import scipy.special
 from pathlib import Path
 
 def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
-        groups=condition_cols, vel_file=None, **kwargs):
+        groups=condition_cols, vel_file=None, dims=None, **kwargs):
     """Catch-all function to compute the various versions of the MSD curves
-    that you might want to investigate. In particular, see Notes below for how
-    to compute all (a)-(g) versions of the MS(C)Ds described in the module
-    docs.
+    that you might want to investigate.
 
     Parameters
     ----------
     df : pd.DataFrame
         the burgess data
     mscd : bool
-        whether or not to calculate MSCDs instead of MSDs
+        whether or not to calculate MSCDs instead of MSDs (prefix dims with 'd')
     include_z : bool
         whether or not to use the "z" dimension in the data, which is a little
         weird since the nuclei are not spherical
@@ -92,6 +90,13 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
         columns by which to perform the final groupby to get one MSD curve per
         group. this simply allows you to calculate e.g. one MSD per cell, or
         one MSD per experiment, etc. etc.
+    vel_file : Optional[str]
+        a file name for the "vel" file if it is to be saved
+    dims : List[Optional[str]]
+        manually specify the names of the columns to be used for each dimension
+        of position. a None specifies to ignore that column.
+    **kwargs : Dict[str, object]
+        forwarded to mla.pos_to_all_vel
 
     Returns
     -------
@@ -103,19 +108,20 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
     """
     if traj_group is None:
         traj_group = cell_cols if mscd else cell_cols+['spot']
-    x = 'X'; y = 'Y'; z = 'Z' if include_z else None
+    if dims is None:
+        dims = ['X', 'Y', 'Z'] if include_z else ['X', 'Y', None]
     if mscd:
-        x = 'd'+x; y = 'd'+y;
-        if include_z:
-            z = 'd'+z
+        dims = ['d' + x if x is not None else None for x in dims]
     all_vel = df \
             .groupby(traj_group) \
-            .apply(pos_to_all_vel, xcol=x, ycol=y, zcol=z, framecol='t',
-                   **kwargs)
-    absv2 = np.power(all_vel['vx'], 2)
-    absv2 += np.power(all_vel['vy'], 2)
-    if include_z:
-        absv2 += np.power(all_vel['vz'], 2)
+            .apply(pos_to_all_vel, xcol=dims[0], ycol=dims[1], zcol=dims[2],
+                   framecol='t', **kwargs)
+    vdims = ['vx', 'vy', 'vz'] # output of pos_to_all_vel always has these cols
+    vdims = [v for v in vdims if v in all_vel.columns]
+    # accumulate vx^2 + vy^2 + vz^2 as directed by dims
+    absv2 = np.zeros_like(all_vel[vdims[0]]) #tf col always exists
+    for vdim in vdims:
+        absv2 += np.power(all_vel[vdim], 2)
     all_vel['abs(v)'] = np.sqrt(absv2)
     if vel_file:
         all_vel.to_csv(vel_file)
@@ -128,59 +134,49 @@ def msd(df, mscd=True, include_z=False, traj_group=cell_cols,
             /scipy.special.gamma((msds['count']-1)/2)
     return msds
 
-msd_args = {
-    'dvel': {'df': df_flat, 'mscd': True},
-    'dvel_unp': {'df': df_flat[df_flat['foci'] == 'unp'], 'mscd': True},
-    'dvel_by_wait': {'df': df_flat[df_flat['foci'] == 'unp'],
-                     'mscd': True,
-                     'traj_group': cell_cols + ['wait_id']},
-    'dvel_by_wait_na': {'df': df_flat[df_flat['foci'] == 'unp'],
-                     'mscd': True,
-                     'traj_group': cell_cols + ['wait_id', 'na_id']},
-    'vel_double_counted': {'df': df, 'mscd': False},
-    # 'vel_no_double': {'df': df},
-    # 'vel_spot2_by_wait': {'df': df},
-    'vel_unp_by_wait': {'df': df[df['foci'] == 'unp'],
-                        'traj_group': cell_cols + ['spot', 'wait_id'],
-                        'mscd': False},
-    'vel_pair_by_wait': {'df': df[df['foci'] == 'pair'],
-                         'traj_group': cell_cols + ['spot', 'wait_id'],
-                         'mscd': False},
-}
-def precompute_msds(prefix=burgess_dir, force_redo=False):
+preset_msd_args_ = """{
+        'dvel': {'df': df_flat, 'mscd': True},
+        'dvel_unp': {'df': df_flat[df_flat['foci'] == 'unp'], 'mscd': True},
+        'dvel_unp_by_wait': {'df': df_flat[df_flat['foci'] == 'unp'],
+                            'mscd': True,
+                            'traj_group': cell_cols + ['wait_id']},
+        'dvel_unp_by_wait_na': {'df': df_flat[df_flat['foci'] == 'unp'],
+                                'mscd': True,
+                                'traj_group': cell_cols + ['wait_id', 'na_id']},
+        'vel': {'df': df.xs(1, level='spot'), 'mscd': False},
+        'vel_double_counted': {'df': df, 'mscd': False},
+        'vel_spot2': {'df': df.xs(2, level='spot'), 'mscd': False},
+        'vel_unp_by_wait': {'df': df[df['foci'] == 'unp'],
+                            'traj_group': cell_cols + ['spot', 'wait_id'],
+                            'mscd': False},
+        'vel_pair_by_wait': {'df': df[df['foci'] == 'pair'],
+                            'traj_group': cell_cols + ['spot', 'wait_id'],
+                            'mscd': False},
+    }
+"""
+preset_msd_args = eval(preset_msd_args_)
+def precompute_msds(prefix=burgess_dir, force_redo=False, **kwargs):
     """Precomputes a bunch of different "MS(C)Ds"
 
-    The various types of MSDs described in the module documentation can be
-    computed as follows (with include_z and groups as you see fit)::
+    Parameters
+    ----------
+    prefix : path_like
+        Folder name in with to save output (default is burgess_dir)
+    force_redo : bool
+        Whether or not to redo the calculation if a file with the requested
+        name already exists.
+    **kwargs : Dict[str, object]
+        Forwarded to msds.msd
 
-        (a) msd(df_flat, mscd=True)
-        (b) msd(df_flat[df_flat['foci'] == 'unp'], mscd=True)
-        (c) msd(df_flat[df_flat['foci'] == 'unp'], mscd=True, traj_group=cell_cols+['wait_id'])
-        (d) msd(df)
-        (e) msd(df[(df['foci'] == 'unp') | (df['spot'] == 1)])
-        (f) df.loc[df['spot'] == 1, 'wait_id'] = 0
-            msd(df[(df['foci'] == 'unp') | (df['spot'] == 1)],
-            traj_group=cell_cols+['spot'+'wait_id'])
-        (g) msd(df[df['foci'] == 'unp'], traj_group=cell_cols+['spot'+'wait_id'])
-            msd(df[(df['foci'] == 'pair') & (df['spot'] == 1)], traj_group=cell_cols+['wait_id'])
-
-    We refer to the velocities calculated from each of the above subsets of
-    the Burgess data by easy-to-remember names::
-
-        (a) dvel
-        (b) dvel_unp
-        (c) dvel_by_wait
-        (d) vel_double_counted
-        (e) vel_no_double: NOT CURRENTLY COMPUTED
-        (f) vel_spot2_by_wait: NOT CURRENTLY COMPUTED
-        (g) vel_unp_by_wait
-            vel_pair_by_wait
+    Notes
+    -----
+    The default is to compute msds using the following 'name': arguments::
 
     """
-    for name, kwargs in msd_args.items():
-        kwargs['vel_file'] = prefix / Path(name + '.csv')
+    for name, msd_args in preset_msd_args.items():
+        msd_args['vel_file'] = prefix / Path(name + '.csv')
         msd_file = prefix / Path('msds_' + name + '.csv')
         if not Path(msd_file).exists() or force_redo:
-            msds = msd(**kwargs)
+            msds = msd(**msd_args, **kwargs)
             msds.to_csv(msd_file)
-
+precompute_msds.__doc__ += preset_msd_args_
