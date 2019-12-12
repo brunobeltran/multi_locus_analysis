@@ -36,7 +36,7 @@ def run_interior_sim(FP):
     # ~14min for Nt=1e6
     # ~3.2hrs for Nt=1e7
     # TBD for Nt=1e8
-    Nt = 1e7; # total number of equi-space time steps, about 2500s
+    Nt = 1e8; # total number of equi-space time steps, about 2500s
     t = np.arange(0, Nt*dt, dt) # take Nt time steps
     t_i, i_i = bnp.loglinsample(Nt, 1e3, 0.43) # contains ~30,60,90,etc
     # i30 = np.argmin(np.abs(t - 30)) # index at "30s"
@@ -106,34 +106,22 @@ def save_interior_sim(p):
     with open(sim_dir / Path('params.pkl'), 'wb') as f:
         pickle.dump(params, f)
 
-def get_bead_df(base_dir, is_glob=False):
-    """Extracts all ura3 data from simulations in a set of directories.
-
-    Accepts either a single base_dir (e.g. ./homolog-sim/no-tether), for new
-    simulations, or a glob object (e.g.  Path('./homolog-sim').glob('no-tether.*'))
-    for old simulations that got broken up
-
-    TODO: remove this functionality once no-tether finishes running."""
+def get_bead_df(base_dir):
+    """Extracts all ura3 data from simulations in a set of directories."""
     dfs = []
-    if not is_glob:
-        # hack to make an iterable of length one with just base_dir
-        base_glob = Path(base_dir).glob(Path('..')/Path(base_dir))
-    else:
-        base_glob = base_dir
-    for base in base_glob:
-        for sim in base.glob('homolog-sim.*'):
-            try:
-                df = pd.read_csv(sim / Path('all_beads.csv'), index_col=0)
-            except:
-                continue
-            df['sim_name'] = sim
-            dfs.append(df[df['bead'] == ura3_bead])
-            dfs[-1].to_csv(sim / Path('ura3.csv'))
+    for sim in base_dir.glob('homolog-sim.*'):
+        try:
+            df = pd.read_csv(sim / Path('all_beads.csv'), index_col=0)
+        except:
+            continue
+        df['sim_name'] = sim
+        dfs.append(df[df['bead'] == ura3_bead])
+        dfs[-1].to_csv(sim / Path('ura3.csv'))
     df = pd.concat(dfs, ignore_index=True)
     df = df.set_index(['FP', 'sim_name', 'bead', 't'])
     df = df.sort_index()
-    if not is_glob:
-        df.to_csv(base_dir / Path('all_ura3.csv'))
+    df = add_paired_cols(df)
+    df.to_csv(base_dir / Path('all_ura3.csv'))
     return df
 
 def select_exp_times(base_dir, Nt=1e8, t=None):
@@ -190,9 +178,10 @@ def get_interior_times(df):
         waitdf.loc[np.isclose(waitdf['wait_time'], uniq_time), 'wait_time'] = uniq_time
     return waitdf
 
-def run_homolog_param_scan():
-    # save each run of this script in a unique directory
-    base_name = './homolog-sim/shortish-no-tether'
+def run_homolog_param_scan(base_name=None):
+    if base_name is None:
+        # save each run of this script in a unique directory
+        base_name = './homolog-sim/no-tether-more-saves'
     # run_num = 0
     # while True:
     #     # as long as the OS is sane, only one thread can successfully mkdir
@@ -208,11 +197,11 @@ def run_homolog_param_scan():
     base_dir = base_name
 
     # set up parameters (FP, tether lists, output directories)
-    params = {'FP': [0, 0.02, 0.05, 0.1],
+    params = {'FP': [0.06, 0.07, 0.08, 0.09],
               'tether_list': [np.array([]).astype(int)],
               'output_dir': [base_dir]}
     scan = Scan(params)
-    scan.add_count(lambda p: 20)
+    scan.add_count(lambda p: 25)
 
     # set up multiprocessing
     num_cores = multiprocessing.cpu_count() - 1
