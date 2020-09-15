@@ -176,6 +176,16 @@ increase) would correctly estimate the parameters of the actual distribution.
     >>> plt.xlabel('t')
     >>> plt.ylabel(r'$P(\mathrm{wait} <= t)$')
 
+Importantly, notice that we had to divide by the actual CDF at the maximum
+measurable :math:`t` in order to get agreement. This is equivalent to
+normalizing the actual CDF so that it reaches one at the end of the observation
+interval.
+
+The same procedure works for arbitrary collections of data measured with
+potentially different window sizes::
+
+    # TODO, insert plot here showing agreement with multiple window sizes
+
 
 A Caveat for Discrete Movies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -566,7 +566,8 @@ def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     max_waits = np.array(latest_et) - np.array(earliest_st)
     df = pd.DataFrame({'start_time': start_times, 'end_time': end_times,
                        'wait_time': wait_times, 'wait_state': wait_state,
-                       'min_waits': min_waits, 'max_waits': max_waits})
+                       'min_waits': min_waits, 'max_waits': max_waits,
+                       'wait_type': wait_type})
     df.index.name = 'rank_order'
     df['window_size'] = times[-1] - times[0]
     return df

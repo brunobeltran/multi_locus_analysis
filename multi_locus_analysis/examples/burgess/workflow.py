@@ -46,7 +46,7 @@ def make_all_intermediates(prefix=burgess_dir, force_redo=False):
         cvv_fits = pd.read_csv(cvv_fits_file)
     else:
         cvv_fits = cvv_stats.groupby(movie_cols).apply(get_best_fit_fixed_beta,
-                p0=(1, 250), bounds=([0.1, 30], [2, 1500]), beta=0.26)
+                p0=(1, 250), bounds=([0.1, 30], [2, 1500]), beta=0.5)
         cvv_fits = cvv_fits.apply(pd.Series)
         cvv_fits.to_csv(cvv_fits_file)
     # do the same thing, but without separating each experiment separately
