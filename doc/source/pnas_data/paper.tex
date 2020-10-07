@@ -1,0 +1,516 @@
+\documentclass[9pt,twocolumn,twoside,lineno]{pnas-new}
+\templatetype{pnasresearcharticle}
+
+%% Fonts
+\usepackage{bm}
+\usepackage{textgreek}
+\usepackage[utf8]{inputenc}
+\DeclareUnicodeCharacter{2206}{-}
+\DeclareUnicodeCharacter{2212}{-}
+\DeclareUnicodeCharacter{2010}{-}% support older LaTeX versions
+\usepackage{mathptmx}
+\usepackage{anyfontsize}
+\usepackage[separate-uncertainty, multi-part-units=single]{siunitx} %%
+\DeclareSIUnit\basepair{bp}
+\sisetup{detect-all} %%
+
+%% Math
+\usepackage{amsmath}
+\usepackage{mathtools}
+\DeclareMathOperator\erf{erf}
+
+%% Hyperlinking
+%\RequirePackage[colorlinks=true, allcolors=blue]{hyperref}
+%\renewcommand\UrlFont{\color{black}\sffamily}
+
+%% Figures
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{subcaption}
+
+%% Colors
+\usepackage{xcolor}
+\definecolor{scalebgcolor}{rgb}{0.08,0.52,0.80}
+\definecolor{purp}{rgb}{0.75,0.00,1.00}
+\definecolor{paicol}{rgb}{1.00,1.00,0.00}
+\definecolor{unpcol}{rgb}{0.00,1.00,1.00}
+\definecolor{mixcol}{rgb}{0.00,1.00,0.00}
+
+\title{Homologous locus pairing is a transient, diffusion-mediated process in meiotic prophase}
+
+%% Authors
+\author[a,1]{Trent A. C. Newman}
+\author[b,1]{Bruno Beltran}
+\author[a,2]{James M. McGehee}
+\author[a,2]{Dan Elnatan}
+\author[a,2]{Cori K. Cahoon}
+\author{Michael R. Paddy}
+\author{Dan B. Chu}
+\author[b,3]{Andrew J. Spakowitz}
+\author[a,3]{Sean M. Burgess}
+
+\affil{Department of Molecular and Cellular Biology, University of California, Davis, Davis, California}
+\affil{Department of Chemical Engineering, Stanford University, Stanford, California}
+
+\authorcontributions{%
+T.A.C.N., B.B., J.M.M., C.K.C., D.E., M.R.P., D.B.C., and S.M.B. designed the research;
+T.A.C.N., B.B., J.M.M., C.K.C., D.E., and D.B.C. collected data;
+T.A.C.N., B.B., J.M.M., C.K.C., D.E., A.J.S., and S.M.B. analyzed the data;
+T.A.C.N., B.B., J.M.M., and S.M.B. wrote the paper.
+}
+\authordeclaration{The authors declare no conflict of interest.}
+\equalauthors{\textsuperscript{1}T.A.C.N. and B.B. contributed equally to this work. \textsuperscript{2}J.M.M., D.E., and C.K.C. contributed equally to this work.}
+\correspondingauthor{\textsuperscript{3}To whom correspondence should be addressed. E-mail for A.J.S.: ajspakow@stanford.edu. E-mail for S.M.B.: smburgess@ucdavis.edu.}
+\leadauthor{Newman}
+
+
+\begin{abstract}
+%PNAS: 250 word limit (currently 250)
+
+    The pairing of homologous chromosomes in meiosis I is essential for sexual reproduction. During pairing, a large number of individual homologous loci along each chromosome are known to interact in a double-strand break (DSB) dependent manner, even though only a small number go on to form mature crossover (CO) products. How and why the cell initially coordinates so many interactions along each chromosome is not well understood. Using a fluorescent reporter-operator system (FROS), we measure the kinetics of interacting homologous loci at various stages of meiosis. We find that all loci are constrained in how far they can diffuse from their homolog pair. This effective tethering radius decreases over the course of meiosis in a DSB-dependent manner. We demonstrate analytically that this is expected for any two Rouse polymers forming randomly-spaced linkages and that the number of linkages required matches the expected number of CO products per chromosome. Simulations of these sparsely-connected polymers reproduce the full search time distribution of \textit{in vivo} homologous loci, and we find no evidence of the tagged loci staying in proximity longer than our simulations would predict for homologous segments simply diffusing past each other. Together, these results suggest a model where the probability of any two given loci being tethered to one another is exceedingly small, despite appearing to colocalize. We demonstrate that colocalization of homologous loci can emerge due to distal linkages, and that a single linkage site is able to constrain the movement of loci up to hundreds of kilobases away.
+
+\end{abstract}
+
+
+\significancestatement{%
+%PNAS: 120 word limit (currently 110)
+    Meiosis is essential for sexual reproduction, and homologous chromosome pairing is a critical step in this process that must be reliably achieved.
+    Here, we show that a simple model containing only the basic polymer physics of DNA is sufficient to reproduce the behavior of homologs as they pair.
+    Our ability to reproduce homologous locus search times (first-passage times) and residence times using the Rouse model demonstrates its broad applicability for analyzing \textit{in vivo} chromatin dynamics.
+    Using this model, we show that it only takes a handful of homologous linkages per chromosome to facilitate pairing, demonstrating that a single tethered locus can drastically restrict the diffusion of DNA tens to hundreds of kilobases away.
+}
+
+
+%% Info
+\keywords{homologous chromosome pairing $|$ meiosis $|$ \textit{tetO}/TetR-GFP
+$|$ polymer looping}
+\dates{This manuscript was compiled on \today}
+\doi{\url{www.pnas.org/cgi/doi/10.1073/pnas.XXXXXXXXXX}}
+
+%% Sections
+\renewcommand{\subsubsection}[1]{%
+  \refstepcounter{subsubsection}%
+  \addcontentsline{toc}{subsubsection}{\protect\numberline{\thesubsubsection}#1}%
+  \markright{#1}}
+\renewcommand\thesection{}
+
+%%%%% ~~~~~ %%%%%
+
+
+%%%%% ~~~~~ %%%%%
+\begin{document}
+\verticaladjustment{-2pt}
+\maketitle
+\thispagestyle{firststyle}
+\ifthenelse{\boolean{shortarticle}}{\ifthenelse{\boolean{singlecolumn}}{\abscontentformatted}{\abscontent}}{}
+%%%%% ~~~~~ %%%%%
+
+%\section*{Introduction}
+
+\dropcap{M}eiosis is a cellular program that creates haploid gametes from diploid parent cells. This chromosome reduction occurs by two chromosome segregation events that follow one round of DNA replication. In meiosis I prophase, homologous chromosomes pair and recombine using homologous recombination before separating at anaphase I. Errors in pairing can lead to chromosome nondisjunction and are a major contributor to birth defects, such as Down syndrome and miscarriages in humans~\cite{antonarakis1992,nagaoka2012}.
+
+In yeast, the progression of pairing is often measured by monitoring whether individual homologous loci are colocalized. Loci start off colocalized prior to meiotic DNA replication in the G0 state. This colocalization, often referred to as pre-meiotic pairing, is disrupted during the course of meiotic S-phase and restored during meiosis prophase I~\cite{weiner1994,cha2000} (see Fig.~\ref{fig:meiosis}d). While the mechanism that promotes colocalization in premeiotic cells is not well understood, it is known that the inter-homolog linkages that promote colocalization during prophase I depend on the formation and repair of DSBs created by Spo11~\cite{keeney1997,zickler2015}. A subset of Spo11-induced DSBs initiate the formation of the synaptonemal complex, which in late prophase aligns homologous chromosomes from end-to-end and is required for regulating the number and distribution of crossovers along a chromosome~\cite{zickler2015}.
+
+The sequence of colocalization at G0, separation during S-phase, and reestablishment of colocalization in prophase I is supported by data generated using various physical assays, including fluorescence \textit{in situ} hybridization to measure the spatial proximity of pairs of loci in fixed spread chromosome preparations~\cite{weiner1994,loidl1994}, a chromosome collision assay to measure the relative frequency of DNA/DNA contacts between loci using Cre/\textit{loxP} site-specific recombination~\cite{peoples2002}, Chromosome Conformation Capture~\cite{dekker2002,kim2017}, and one-spot two-spot measurements using fluorescence reporter operator systems (FROS) in living cells~\cite{brar2009,lee2012} While each method has its limitations~\cite{fuchs2002, mirkin2014}, an overall pattern emerges. Full-length homolog juxtaposition seems to rely on a large number of interactions between multiple loci along each chromosome~\cite{kleckner1993}.
+
+However, because existing measurements provide only static snapshots into populations of cells, it has not been explored if homologous loci are brought together in the first place by a processive motor or simply via thermal fluctuations. While it has been proposed that homologs may undergo many, transient interactions~\cite{weiner1993,weiner1994}, the dynamic nature and the stability of these interactions has not yet been measured.  In order to directly observe the kinetics of these putative interactions, we used FROS-based tags to track pairs of homologous loci that are known to colocalize with high probability. Snapshots of the position of these loci in 3D space over time in individual live cells were collected \textit{in vivo} in the G0 state prior to DNA replication and in cells transiting through prophase I to anaphase I.
+
+Because any mechanism to bring together or stabilize the loci \textit{in vivo} must either utilize or overcome the thermal motion of the DNA polymer, we compare our measurements to a simple model which captures only the basic physical properties of freely-diffusing meiotic chromatin. We then compare this baseline model to a modified version that includes linkages between randomly-chosen homologous sites, allowing us to measure how many homologous loci would need to be directly interacting in order to lead to the increased coordination between the loci we observe as meiosis progresses.
+
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics{Figure1.pdf}
+    \caption{A schematic of the relative timing of the chromosome events of meiosis in SK1 strains of budding yeast~\cite{padmore1991,weiner1994, cha2000,tesse2003,brar2009,borner2004,peoples2002}. (a) Chromosomes in premeiotic cells arrested in G0 are in the Rabl configuration with centromeres tethered to the nuclear periphery. (b) Early to mid prophase is marked by DSB formation and the initiation of synapsis. (c) Late prophase is marked by the end-to-end alignment of homologs by the synaptonemal complex. (d) Pre-meiotic colocalization is lost during DNA replication and is restored during meiotic prophase, culminating in the full-length alignment of homologs joined by the synaptonemal complex (SC). Soon afterwards, cells begin to complete meiosis I (MI). (e) The loci shown here were chosen to probe the dependence of colocalization on centromere proximity.
+    }\label{fig:meiosis}
+\end{figure}
+
+Comparing our experimental data to these polymer models suggests that the loci are, for the large part, diffusing freely past each other. In spite of the fact that the randomly-chosen linkage sites almost never occur at the particular locus we have tagged, our simulations are still able to reproduce the full distribution of residence times (times spent colocalized) of the colocalized loci in late meiosis, suggesting that the loci do not directly interact, but are merely tethered together indirectly by distal homologous interactions (see Fig.~\ref{fig:tether-definition}).
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics{Figure2.pdf}
+
+
+\caption{Throughout this paper, by “linkage” we mean a specific, chemical bond between two loci. We consider a locus “tethered” to its homologous partner whenever there exists a linkage anywhere along the length of the two homologous chromosomes. The distance (highlighted in white) of the polymer connecting two tethered loci we call the “tether length”. (a) An example of cells where the loci are separated and untethered. (b) An example where the loci are tethered (by a DSB repair product, shown as a star as in Fig.~\ref{fig:meiosis}. (c) An example where the loci are (otherwise) untethered but are colocalized. (d) An example where the loci are colocalized as well as tethered together by a distal linkage site. Loci in (c) and (d) can be either part of a linkage themselves (e), or merely nearby each other, but unbound (f).}\label{fig:tether-definition}
+\end{figure}
+
+In order to reproduce the experimental data, our simulations require only a handful of homologous connections along the whole length of the chromosome, demonstrating that even tethers tens to hundreds of kilobases long are sufficient to explain the coordination we observe between loci, without requiring any active forces bringing the loci together. Our results suggest that end-to-end homolog juxtaposition (as measured, for example, in~\citep{loidl1994,weiner1994}) is largely driven by a small set of bona fide Spo11-dependent linkages, consistent with the number of DSBs expected per chromosome~\cite{borde2012}.
+
+%%%%% RESULTS %%%%%
+\section*{Results}
+
+\subsection*{Live imaging reveals physical tethering between homologous loci}
+
+Our study used yeast strains containing chromosomes carrying FROS tags, comprised
+of chromosomally-integrated \textit{tet} operator arrays of 112 repeats bound by fluorescent TetR-GFP protein~\cite{brar2009}.
+Operators were inserted at either the \textit{URA3} locus---which is on the short arm of
+chr.~V near the centromere, or the \textit{LYS2} locus---which is in the center of the long arm of chr.~II (see Fig.~\ref{fig:meiosis}). Cite also~\cite{marston2004,michaelis1997}.
+
+\begin{figure}[t!]
+\centering
+\includegraphics{Figure2.pdf}
+\caption{(a) A typical field of cells, with an example cells showing either two spots (left)
+     or one spot (right). (b-c) Maximum intensity projections (MIPs) of the relative positions of fluorescent foci at 30 s intervals. In (b), the vertical axis corresponds to a $z$-stack (with step size \SI{2/15}{\micro\meter}. For each $x$ and $y$ coordinate, the maximum value over all time points for that $z$-stack is shown. In (c), the vertical axis represents time ($t$, in seconds), and the projection is instead performed over $z$-stacks. The positions of the loci and the distance between them is highlighted for select time points. (d-f) kymographs showing the distance between the loci in a single cell over the 25 minute imaging period. Each horizontal slice in the kymograph shows the fluorescence intensity along the line joining the centers of the two loci in a single frame. Example of cells where the loci are separated (d), or colocalize (f) for every frame. The cell shown in (e) undergoes several transitions between the two states.
+}\label{fig:exp-setup}
+\end{figure}
+
+Cells were cultured for synchronized progression through meiotic prophase as described in~\cite{lui2009}. Briefly, cells were grown in YP media containing acetate for arrest in G0. Thereafter, cells were transferred to sporulation medium and aliquots of cells were removed from the culture  every hour and imaged over a 25 minute period at 30 second intervals ($T_M = T_0, T_1, \ldots$). Following extensive quality control (see Materials and Methods for details), the
+positions $\vec{r}_1(t_i)$ and $\vec{r}_2(t_i)$ of the two fluorescent foci
+(or the single paired focus) was determined for at least 10 “ok” cells per slide as seen in
+Fig.~\ref{fig:exp-setup}.
+
+Since Spo11-dependent homolog pairing initiates around 3 hours post transfer to sporulation media, we tested if we could get a readout of pairing interactions by measuring tethering between the two loci. This was done by comparing the height of the plateau of values from the mean squared change in distance (MSCD) between the two foci to the plateau of mean squared displacement (MSD) curves of individual loci. MSCD was computed by  $\Delta{}\vec{r}$---i.e.\ $\langle {\Delta{}r}^2 \rangle$ for each cell.
+Fig.~\ref{fig:mscd-cells}a, shows time-averaged, single-particle MSCDs for a random subsample of cells from a single movie (of \textit{URA3} at $T_3$). We compute the time average for a single trajectory as
+\[ \left\langle\Delta{}\vec{r}^2(t)\right\rangle_\text{ta}
+ \coloneqq \left\langle \left(\Delta{}\vec{r}(\tau + t) - \Delta{}\vec{r}(\tau)\right)^2 \right\rangle_\tau, \]
+where $\langle\cdot\rangle_\tau$ indicates the averaging is performed over all possible values of $\tau$.
+Because our fluorescent tags are a single color, whenever the loci are within $\approx\SI{250}{\nano\meter}$ of each other, their locations are indistinguishable due to overlap of their respective point spread functions. These time points were omitted from all MSCD calculations, meaning that we are explicitly computing the dynamics of non-overlapping loci only.
+
+
+Previous observations of chromosomal dynamics in S. cerevisiae demonstrated that the diffusion of chromosomal loci can be well-described by the broadly-applicable Rouse model of polymer diffusion. Specifically,  the mean squared displacement curves follow the characteristic $\alpha = 1/2$ power law expected of Rouse polymer diffusion~\cite{weber2010}. In Fig.~\ref{fig:mscd-cells}a, we plot a random subsample of MSCD curves at $T_3$. We see that in most cells, the MSCD curve is basically flat, with the value at which this plateau occurs varying from \SI{0.3}{\micro\meter} to \SI{1.7}{\micrometer}. However, in the rare cells where the MSCD has not already reached its plateau within a small number of frames, we see that the trajectories exhibit the $\alpha = 1/2$ power law scaling characteristic of Rouse behavior. We highlight one such curve in Fig.~\ref{fig:mscd-cells}a.
+
+To ascertain whether this plateau is due to tethering between the two loci or by confinement within the nucleus, we compared the plateau of the the MSCD curves to the individual mean-squared displacement (MSD) curves for one of the two loci (e.g.\ $\langle r_1^2 (t) \rangle$).
+We expected that the MSD of any diffusing particle would plateau at the square of the confinement radius if the loci were confined to a subsection of the nucleus or if the loci were untethered from each other. However, the MSDs reached a plateau of values that  is much higher than the MSCDs, up to the full radius of the nucleus (see Supp.\ Fig.\ S1a-b).
+This implies that the MSCD plateau is measuring how tightly the loci are tethered to each other (the tethering radius), while the loci (as a pair) are free to explore the entire nucleus.
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics{Figure3.pdf}
+    \caption{(a) MSCDs for a random subsample of 16 different \textit{URA3} trajectories at
+    $T_3$. Expected behavior for confined loci
+    (slope $\alpha = 0$) is exhibited by most cells.  One cell exhibiting unconfined behavior ($\alpha = 1/2$) is
+    highlighted. Some MSCDs plateau as high as $\approx\SI{1.7}{\micro\meter\squared}$ (corresponding well with the typical radius of a yeast nucleus~\cite{??}). Middle: Analytical MSCDs for five different theoretical
+    ``cells'', where a Poisson-distribution number of linkages ($\mu = 4$) have been distributed uniformly along chr.~V, which we assume to be composed of approximately 116,000 Kuhn lengths (see Materials and Methods).
+    Bottom: locations of the random linkages for the five example ``cells''. The effective tethers holding the loci together are highlighted. The nearest linkage is highlighted by a thicker line. Notice that when two tethers exist, they effectively form a large chromatin loop on which the two loci live.
+    }
+    \label{fig:mscd-cells}
+\end{figure}
+
+\subsection*{Tethering of homologous loci through random linkages can recreate the range of confinement observed experimentally}
+
+Because the mid-to-late prophase increase in homolog pairing depends on DSB formation but not synaptonemal complex formation~\cite{peoples2002,peoples2005,burgess2005}, we asked how many randomly-spaced homologous recombination events would be required to reproduce the observed tethering. This would provide us a baseline for how much we should expect loci to colocalize naturally without requiring the locus being measured itself to actually undergo homologous recombination.
+
+Since we observe the characteristic Rouse ($\alpha = 1/2$) power law scaling in
+our single-cell MSCDs, and because we are measuring at large enough length and time scales,
+we modeled each of our chromosomes using Rouse theory, which has seen success modeling DNA diffusion in diverse
+environments, from \textit{in vitro} systems, to bacteria~\cite{weber2010,weber2012a,weber2012b}, mammalian cells~\cite{??}, and (importantly) yeast nuclei~\cite{weber2012a,weber2012b,marshall2016,marshall2019}.
+
+To model the recombination events that have taken place by $T_3$, we added a Poisson-distributed number of ``linkage sites'' (represented by the blue sticks in Fig.~\ref{fig:mscd-cells}) located uniformly randomly along the chromosome of interest.
+The two homologous loci at a linkage site are constrained to always have $\Delta{}\vec{r} = \vec{0}$.
+The two copies of our tagged loci are therefore connected by an effective tether whose length is twice the genomic distance to the nearest linkage site, which we highlight in white in Fig.~\ref{fig:mscd-cells}c.
+If there are linkage sites on both sides of the tagged locus (e.g. cells 1 and 4 in Fig.~\ref{fig:mscd-cells}c), then these form two independent tethers, isolating the tagged loci onto an effective ``ring'' polymer, also highlighted in white.
+Assuming this topology is fixed, then for each example set of linkage sites in Fig.~\ref{fig:mscd-cells}c we can analytically compute the MSCD of the tagged loci by treating them as beads connected by Rouse tethers of appropriate lengths (see Materials and Methods for details).
+
+To show only the effect of the tethering, we first plot analytical MSCD curves computed for loci with no other confining forces in Fig.~\ref{fig:mscd-cells}b. For this case, our theory predicts that the MSCD plateau level is completely determined by (the harmonic average of) the number of Kuhn lengths in each of the tethers linking our tagged loci.
+Notice that the effective tethering radii (plateau heights) for the randomly linked chromosomes span a range even larger than the experimental data.
+This is because with a small number of linkages present, the distance separating the tagged loci along the linked polymer can vary from the length of the chromosome (e.g.\ Fig.~\ref{fig:mscd-cells}, cell 4) to almost zero (e.g.\ Fig.~\ref{fig:mscd-cells}, cell 1).
+
+We postulate that our experimental data would occupy the same range, if it were not limited at the high end by nuclear confinement and at the low end by imaging resolution. The trajectories in Fig.~\ref{fig:mscd-cells}a seem to cluster at the highest measured values (between \SI{1}{\micro\meter} and \SI{2}{\micro\meter}), as would be expected if we added nuclear confinement to Fig.~\ref{fig:mscd-cells}b.
+
+\subsection*{Heterogeneous tethering lengths between cells accounts for a reduced subdiffusive exponent} These results provide direct evidence of heterogeneously spaced linkages joining the homologs together. We next tested if these linkages were in fact due to DSB-dependent recombination events. Our expectation is that if tethering is mediated by Spo11-dependent linkages,
+the average tethering distance would become shorter  over the course of meiosis. This was determined by the measuring the
+ensemble-averaged MSCD at each meiotic stage ($T_M$).
+We used a dual time-and-ensemble average, computed as
+\[ \left\langle\Delta{}\vec{r}^2(t)\right\rangle_\text{ens}
+ \coloneqq \left\langle \left(\Delta{}\vec{r}_j(\tau + t) - \Delta{}\vec{r}_j(\tau)\right)^2 \right\rangle_{j,\tau}, \]
+where $\Delta{}\vec{r}_j$ refers to the distance between the two loci in the $j$th cell, and the average is taken over all cells imaged at each $T_M$ (across multiple biological replicates).
+
+In Fig.~\ref{fig:mscd-bulk}, we see that these ensemble averaged
+MSCD curves still exhibit a terminal plateau behavior, but the bulk of each
+curve has a shallower than expected slope on the log-log scale ($\alpha
+\approx 0.2 < 1/2$).
+Such a shallow slope is normally indicative of the nucleoplasm having intrinsic elasticity beyond that of the polymer backbone itself~\cite{weber2010,weber2010a}.
+However, this would contradict the single-particle measurement of $\alpha = 1/2$ in Fig.~\ref{fig:mscd-cells}, which corresponds to a purely viscous environment.
+
+
+
+
+
+\begin{figure*}[t!]
+\centering
+\includegraphics[width=0.99\textwidth]{Figure4.pdf}
+\caption{Time-and-ensemble averaged MSCDs at different times after induction of sporulation.
+    (a) wild-type \textit{URA3} loci. A power-law slope of 0.2 is included for comparison.
+    (b) \textit{spo11$\Delta$} strain, tagged at the \textit{URA3} locus.
+    (c) Theoretical results for chromosomes with uniformly randomly spaced homologous linkages.
+    (d) Approximate plateau levels, calculated from (a) and (b). The final five values of the MSCD were averaged to get an approximate confinement radius.
+    TODO: MOVE TO NEW FIGURE:
+    (a)/(b): The fraction of cells at each stage of meiosis ($T_M = T_0, T_1, \ldots$) that are observed to be in the ``mixed'' and ``paired'' states, respectively, for each of the two loci (see legend). Curves labelled ``WT'' correspond to wild-type strains and those labelled \textit{spo11$\Delta{}$} correspond to the mutant strain.}\label{fig:mscd-bulk}
+\end{figure*}
+
+We hypothesize that this reduced subdiffusive exponent might simply be due to the inter-cell heterogeneity in the tethering radius.
+To test this hypothesis, we performed the same ensemble averaging on our analytical MSCDs (Fig.~\ref{fig:mscd-bulk}c). Each curve in Fig.~\ref{fig:mscd-bulk}c was computed by first fixing the average linkage density ($\mu$) and then averaging together theoretical MSCD curves for thousands of the individual ``cells'' shown in Fig.~\ref{fig:mscd-cells}c. Because of the random placement of linkage sites, the tagged loci in each ``cell'' have different tethering lengths, and therefore each individual MSCD curve reached its plateau at slightly different times. Averaged over the population, this led the ensemble-averaged MSCDs predicted by analytical theory to have the same $\alpha\approx 0.2$ slope as the experimental data.
+
+This serves to demonstrate that ensemble-averaged MSDs can be misleading in environments with large amounts of sample-to-sample variability, such as the nucleoplasm~\cite{lampo2017}, and means that our data is still consistent with randomly-linked homologs diffusing in a purely viscous nucleoplasm.
+
+\subsection*{Average tethering distance is predicted by the number of crossover events per chromosome}
+
+In the long-time limit, it can be shown that the ensemble-averaged MSCD plateaus to the average tethering radius of the population.
+Therefore, by tracking how this ensemble averaged plateau evolves over the course of meiosis, we can track how frequently the loci are tethered to each other on average.
+
+At $T_0$, centromeres are clustered at the nuclear periphery in the Rabl configuration~\cite{jin2000}.
+As expected, the more centromeric \textit{URA3} locus therefore exhibits a smaller average confinement radius at $T_0$ than the more distal \textit{LYS2} locus (Supp.\ Fig.\ S2).
+Between $T_0$ and $T_3$, we observed that the plateau level gradually increases.
+This gradual increase is consistent with previous work~\cite{cha2000} that reports significant heterogeneity in the time between induction of sporulation and entry into meiosis, despite the use of synchronized cell cultures.
+As the centromere dissociates from the nuclear envelope in more and more cells---leaving the loci free to diffuse around the nucleus---the average plateau level would be expected to rise concomitantly.
+
+At $T_3$, around when we expect bona fide homologous recombination to begin, we saw that the average confinement radius began to decrease.
+To verify that this effect is specific to homologous chromosomes and not simply due to large-scale nuclear compaction, we repeated our analysis in a strain where our FROS tag is integrated in only one homolog of chromosomes III and II at the, so that \textit{URA3} and \textit{LYS2} loci, respectively.
+In these cells, the plateau level instead increases starting at $T_3$ (Supp.\ Fig.\ S2), indicating true homolog confinement
+
+To test if tethering between our homologs is mediated by recombination-dependent linkages, we repeated our analysis in a \textit{spo11$\Delta$} mutant deficient in forming DSBs.
+We again saw the expected initial increase in the plateau expected from centromere detachment but no subsequent decrease, consistent with the hypothesis that, after time $T_3$, the MSCD plateau is reporting the average density of linkages along a pair of homologs (Supp.\ Fig.\ S2).
+
+By comparing the plateau levels of our theoretical curves to the experimental data, we estimate that at $T_3$, mid-prophase, approximately 4 connections link together the homologous copies of chr.~II on average, a number which increases to 7 by the end of meiosis.
+This number approximately matches the average number of crossover events for chromosome V (2-4) based on genome sequencing ~\cite{krishnaprasad2015 (4.5 CO; ChV) ,mancera2008 (~4.5 average; ChV),qi2009 (2, 2; ChV),anderson2011 (4, 2; ChV)} and explains the large cell-to-cell heterogeneity in the single-cell MSCDs.
+
+
+
+
+These results are consistent with the idea that throughout prophase, the dynamics of the linked homologs are primarily determined by linkages at sites that will go on form mature CO products. We note that the number of linkage sites predicted here is sensitive to both our choice of Kuhn length for our model and to the addition of any other biological players that have been omitted here.
+
+\subsection*{Homologous interactions remain transient throughout meiosis}
+
+In Fig.~\ref{fig:fraction-paired}, we report the fraction of cells with one spot at each hour after transfer to sporulation media, averaged over all cells imaged and over all frames of each movie.
+As previously reported by others~\cite{brar2009, chu2017a}, we found that the fraction of one-spot cells increases over time but never reached 100\%. In spo11 mutants, the fraction of one-spot cells continues to decrease over time.
+Due to the static nature of this metric, previous studies have been unable to distinguish between an increased frequency of transient colocalization on the one hand and the formation of stable interactions in a fraction of the cells on the other.
+
+Due to the dynamic nature of our measurements, we further classified entire trajectories as being persistently separated---i.e.\ never forming ---and persistently colocalized---remaining in contact throughout the movie.
+Moreover, by observing trajectories over time, we identified a third category of ``mixed'' trajectories, where the cell was observed to transition in or out of a colocalized state during the 25 minute period. These three states are easily distinguishable by displaying kymp (see Fig.~\ref{fig:exp-setup}  for kymographs of these three trajectory states).
+We plot the fraction of ``mixed'' trajectories in Fig.~\ref{fig:fraction-paired}.
+
+The fraction of ``mixed'' trajectories starts off low before the start of meiosis due to the loci being largely paired (see Supp.\ Fig.\ S3), but increases to $75\%\pm4\%$ by $T_0$ for the \textit{URA3} tag and remains high throughout meiosis.
+In fact, we observed that most mixed trajectories are composed of several state changes, stochastically switching between the colocalized and separated states.
+We histogrammed the number $n$ of transitions between the colocalized and separated  states per trajectory, and we found it to be approximately exponential (see Supp.\ Fig.\ S4) with a mean of about $\langle{}n\rangle{} = 9.4$.
+If we consider the ``paired'' and ``unpaired'' trajectories to just be the $n=0$ case of the ``mixed'' trajectories, the number of these trajectories fits our expectations given the observed exponential distribution.
+This suggests that the loci may not be interacting at a molecular level even though  they appear to be persistently colocalized for \SI{25}{\minute}/ We infer that  pairs of loci may simply be diffusing into and out of proximity with each other throughout meiosis, without escaping the resolution threshold.
+
+\begin{figure*}[t!]
+\centering
+\includegraphics[width=0.99\textwidth]{Figure5.pdf}
+\caption{Histograms of dwell times for \textit{LYS2} locus. Top: Simulations. Middle: Wild-type. Bottom: \textit{spo11$\Delta$} mutant.  For the experimental data, one histogram per stage in meiosis is shown, colored by time since transfer to sporulation media. For the simulations, each histogram represents a comparable amount of data to the most well-sampled experimental case. The simulation histograms are colored by how many linkages per chromosome were used on average.
+}\label{fig:pair-unpair}
+\end{figure*}
+
+
+
+\subsection*{Simulations of linked polymers match experimental dwell times}
+
+To test our hypothesis that the locus dynamics can be explained purely by diffusion, we ran Brownian dynamics simulations of our polymer model with various levels of linkage density $\mu$, in order to determine if introducing the baseline number of homologous linkages we determined to be present above would be sufficient to reproduce the observed pairing dynamics without the loci ever directly interacting.
+
+For each simulation, we first generated a single set of linkage locations.
+Two equal-length polymers were then placed in a spherical confinement as described in~\cite{weber2010}, and the pair of discretization beads corresponding to each linkage site were treated as a single bead with modified diffusion coefficient.
+
+In Fig.~\ref{fig:pair-unpair}, we plot the distribution of search times (i.e.\ times spent in the unpaired state) and the distribution of residence times (i.e.\ time spent in the paired state). Both simulations and experimental data were said to be in the paired state if the loci were within \SI{250}{\nano\meter} of each other. The number of simulations used for each curve was set to match the maximum number of cells observed in any of our experiments, so that noise due to sampling would be comparable.
+
+Notice that as we increase the number of linkages in our simulations (top row), the search times between loci systematically decrease, as expected due to the polymers being tethered more tightly to each other.
+This decrease can be seen through the slight drop in the height of the tail as linkage number increases, but more significantly by the increase in frequency of the most-transient unpaired times (leftmost histogram bar, see also Supp.\ Fig.\ S6).
+Concordantly, as the number of linkage sites increases, the residence times lengthen, since the loci are effectively confined to a smaller volume on average.
+We emphasize that in our simulation the tagged loci are not ever directly bound to each other. In fact, they do not interact at all, as the Rouse model is a so-called ``phantom-chain'' model. Therefore, this increase in apparent ``interaction'' times is simply due to it becoming increasingly difficult entropically for the loci to move more than \SI{250}{\nano\meter} apart.
+
+Comparing these simulations to the experimental data, we see that before meiosis begins ($T_0$), our loci match the distribution of dwell times expected for two polymers with only one or two linkages. At late stages of meiosis ($T_5$), this grows to around seven linkages, matching the linkage density determined from the MSCD plots.
+
+We confirmed these trends are homology- and DSB-dependent by comparing measurements of heterologous loci (see Supp.\ Fig.\ S5) and the \textit{spo11$\Delta$} mutant (bottom panels, Fig.~\ref{fig:pair-unpair}). In both of these cases, there was no significant change in the residence time distribution, and the average unpaired dwell time actually lengthened significantly as meiosis progressed, presumably due to the dissolution of the Rabl configuration.
+
+%%%%% DISCUSSION %%%%%
+\section*{Discussion}
+
+\subsection*{Locus ``pairing'' is a thermally-dominated process}
+
+
+%TODO Comment on total number of anaylzed trajectories?
+
+Earlier studies have used a static ``one-spot, two-spot'' measurements to analyze the pairing state of individual loci~\cite{brar2009, conrad2008}.
+It was demonstrated early on~\cite{weiner1994, lee2012, loidl1994} that a given locus under study will never be paired in every cell, even late in prophase when homologs are synapsed along their lengths.
+Here we extend this idea, observing that the vast majority of so-called paired loci are merely in close spatial proximity, and not actually interacting, no matter what stage of prophase we observe.
+Furthermore, we show that, due to the dynamics of the chromatin polymer, a typical locus will naturally fluctuate into and out of proximity with its homologous partner throughout prophase.
+
+Since our frame rate is \SI{1/30}{\hertz}, we cannot rule out the existence of interactions whose effects last less than \SI{30}{\second}, or where the interaction strength is weak enough that it can be drowned out by thermal noise. However, while such interactions may still exist, adding them would (by definition) not affect the output of our model, making it difficult to imagine how such a putative interaction could contribute to the full-length pairing of homologous chromosomes \textit{in vivo}.
+
+
+Since the chromatin polymer is thermally fluctuating regardless of cell type, we hypothesize that thermal fluctuations may be a dominant player in driving homolog pairing in other organisms as well. For example, some authors have observed transient locus colocalization (i.e. ``pairing'') in \textit{S. pombe}~\cite{chacon2016}, \textit{Drosophila}~\cite{vazquez2002}, \textit{C. elegans}~\cite{wynne2012} and mouse. It would be interesting to see what fraction of these pairing events can be attributed purely to polymer diffusion.
+
+A pairing process primarily driven by diffusion would also provide a simple explanation for other well-conserved phenomena, such as rapid telomere movement~\cite{lee2015,conrad2008,wang2008}. Instead of pushing or pulling telomeres together, rapid telomere movement need only increase thermal fluctuations along the polymer in order to facilitate pairing~\cite{marshall2016}.
+
+\subsection*{Distal connections can facilitate chromatin organization}
+
+Our model suggests that the number of linkages required to drive chromosomal alignment is extremely small. Because of this, we cannot isolate any examples of such a linkage actually forming in our data, even with thousands of trajectories. Identifying the mechanism creating these linkages---and determining whether or not they require active forces to create---is the next step for testing our model.
+
+However, the small number of linkages required also highlights just how much distant chromosomal junctions can affect the diffusive dynamics of a locus.
+We hypothesize that other processes that rely on chromosome rearrangement may exploit these same physics.
+For example, enhancer loop formation has been proposed to be facilitated by TAD formation~\cite{galupa2020}.
+Our data suggests that, in this case, tracking the loci of interest (e.g. the enhancer/promoter pair) over a long enough time frame should be sufficient to extract their connectivity (e.g. TAD size) on a single-cell level, even if the distal connections joining the loci of interest are hundreds of kilobases downstream.
+
+\subsection*{Heavy-tailed search times are likely rate-limiting for meiotic progression}
+
+The dwell time distributions we observe in both simulation and experimental conditions (Fig.~\ref{fig:pair-unpair}) not only agree well with each other, but they differ drastically from what one would expect if loci were brought into proximity by other means besides polymer diffusion.
+
+Suppose, for example, that there was an active mechanism pulling homologous loci together. If the active mechanism was a rate-limiting step (i.e. kinetics dominated by a single reaction), then we would expect the dwell times to follow an exponential distribution~\cite{doob1942,gillespie1977}. While some classical approximations for polymer looping times also produce exponential distributions~\cite{wilemski1974}, we instead observe power-law falloff at long times, meaning that our distributions are significantly more heavy-tailed than one would expect from a reaction-limited process.
+
+It is also not the case that any diffusion-limited model will match the shape and height of our data. For example, one can derive that for two particles searching for each other in a confinement, the distribution of search times would fall off as the derivative of $\erf(t^{-1/2})$, which is also significantly less heavy-tailed than our data. These differences are stark, qualitative differences in the output that do not depend on our parametric assumptions (see Supp. Fig.\ S7 for comparison).
+
+We do not attempt to establish how the linkages we observe holding together our tagged loci are formed, but it is possible that they are also the result of a purely diffusive search. At first glance, it may seem dangerous for the cell to rely on a heavy tailed process to accomplish this goal, especially considering how important homolog pairing is for the healthy progression of meiosis.
+
+%TODO Somewhere in the discussion say that linkages 10s to 100s of kb away can act as tethers. This is on the scale of predicted physical connections every ~60-80 kb predicted by Weiner and Kleckner; Burgess et al 1999 in both meiotic and mitotically dividing cells, respectively.  Moreover, it reflects the approximate distance at which crossovers are positioned along the lengths of homolog pairs (~70-100 kb), which is influenced by crossover interference (doi: 10.1080/15384101.2015.1093709).
+
+However, our results also suggest that once any homolog pair does manage to interact, then that initial connection between the chromosomes will greatly facilitate the interaction of other homologous loci. This suggests that homolog pairing might happen via a positive feedback mechanism (such as the one proposed in Refs.~\cite{lewis1954,loidl1990,marshall2016,marshall2019}) wherein each random homologous interaction event decreases the search time for all subsequent homologous interactions, allowing the chromosomes to zipper up significantly faster than would be suggested by the single-homolog search time distribution.
+
+Furthermore, given how well-aligned the homologous chromosomes are in interphase (due to the Rabl configuration), the initial connection joining the homologous chromosomes need not even be a DSB-mediated one~\cite{burgess1999}. A small handful of leftover connections from interphase joining the homologous chromosomes would be enough to take the expected search time for the first genuine DSB-mediated homologous connection from hours to seconds (expected value of blue and red curves, respectively, in Fig.~\ref{fig:pair-unpair}, top-left panel).
+
+\section*{Conclusions}
+
+Spo11-dependent homolog colocalization during meiosis, long thought to be primarily driven by DSB repair machinery, is in fact largely a chemically inert process.
+Frequent pairing in late meiosis requires only a small number of distal, DSB-dependent mechanical chromosomal linkages to exist.
+A simple Rouse polymer model modified to include these sparse ``homologous linkages'' reproduces the complete dwell time distributions for the paired and unpaired states of our loci as a function of time into meiosis.
+
+These findings highlight how bottom-up, coarse-grained modeling of the basic polymer physics driving chromatin motion can be a powerful tool when dealing with complex structural and organizational rearrangements in the nucleus.
+
+
+%%%%% MATERIALS AND METHODS %%%%%
+\section*{Materials and methods}
+
+\subsection*{Time course}
+
+
+All yeast strains used were in the SK1 background and are listed in Supp.\ Fig.\ S8.
+Cell synchronization and meiotic induction was performed as described
+previously~\cite{lui2009}. Every hour after transfer to sporulation medium, slides were prepared for imaging according to~\cite{dresser2009}, using silicone
+isolators (Cat.\ no.\ JTR20R-2.0, Grace Bio Labs). All of our image processing
+code is available at \url{https://github.com/ucdavis/SeeSpotRun}.
+
+
+\subsection*{Imaging}
+
+
+Imaging was performed on a Marianas real time confocal workstation with mSAC +
+mSwitcher (3i), using a CSU-X1, microlens enhanced, spinning disk unit
+(Yokogawa). All imaging was performed in a full enclosure environmental chamber
+preheated to $\SI{30}{\celsius}$, using a microscope incubator (Okolab). Samples
+were excited with a LaserStack $\SI{488}{\nm}$ line (3i), observed using an
+ALPHA PLAN APO 100X/1.46 OIL objective lens (Zeiss), and photographed using a
+Cascade QuantEM 512SC camera (Photometrics), with a $\SI{0.133}{\um}$ pixel
+size. Samples were kept in focus using Definite Focus (Zeiss), capturing up to 41
+z-sections (as required to acquire the complete sample thickness), with a $\SI{0.25}{\um}$ step size, every
+$\SI{30}{\second}$ for 50 time points (a total of $\SI{25}{\minute}$). Slidebook
+v5 (3i) was used to run the time-lapse live-cell imaging and export each plane
+as a separate 16-bit \texttt{.tiff} file.
+
+
+\subsection*{Video quality control}
+
+
+Videos were excluded from analysis if the quality was so poor as to affect
+subsequent analysis, with assessments based on signal to noise, signal
+bleaching, and drift in the z and xy dimensions (Supp.\ Fig.\ S9a-c). If drift occurred
+only at the start or end of the video, and was sufficient to affect image
+segmentation, then the problematic frames were trimmed from the video. Manual
+cell segmentation, was performed from a zt-MIP (maximum intensity projection,
+over the z and $t$ dimensions) using \texttt{dist3D$\_$gui.m}, while referring
+back to the z-MIP video, ignoring overlapping cells and those at the edge of the
+field of view. Qualitative observations of cell quality were made by referring
+to the z-MIP video and the position of each cropped cell. Only cells deemed
+``okay'' (Supp.\ Fig.\ S9d-j) were included in the subsequent analysis. For inclusion,
+videos required twice as many live cells as dead (dead/live~\textless{}~0.5) and
+\textgreater{} 10 okay cells.
+
+\subsection*{Spot calling}
+
+The position of the fluorescent foci within each cropped cell was detected
+independently for each time point in the video according to the algorithm
+described in~\cite{thomann2002}. The raw image intensity data from each cropped
+cell was filtered with a 3D Gaussian kernel to remove as many noise-related
+local maxima as possible. Peak localization (\texttt{runSpotAnalysistest.m}) was
+performed through local maxima detection in 3D using image dilation, followed by
+curvature measurement, which allowed significant peaks to be identified through
+a cumulative histogram thresholding method. The computational spot calling was
+manually confirmed in order to remove obvious errors (Supp.\ Fig.\ S10--S11) using
+\texttt{conf$\_$gui.m}. If the fitting routine failed to find peaks in more than
+half the time points for any given cell, that cell was omitted from the
+analysis.
+
+
+\subsection*{Experiment quality control}
+
+
+Experiments with a very poor overall agreement between computational and
+manual spot calling, with an average difference between detection methods of
+greater than \SI{10}{\%} at each meiotic timepoint, were excluded from analysis.
+The manual analysis was performed by calling cells as having one or two spots
+based on a visual assessment of a z-MIP, this was done for three time points
+from each $T_M$. Whole experiments were also excluded from the final dataset if
+the meiotic pairing progression could not be confirmed to exhibit various
+characteristic properties, such as a single, appropriately timed ``nadir''. This was
+typically due to an experiment lacking sufficient $T_M$ due to exclusion of
+individual videos.
+
+
+\subsection*{Trajectory Analysis}
+
+Downstream analysis of the extracted trajectories was performed using a custom Python package
+(\texttt{multi$\_$locus$\_$analysis} (mla) v.0.0.22, see:
+\url{https://multi-locus-analysis.readthedocs.io/en/latest/}). Dwell times were
+corrected for finite window effects using the method described
+in~\cite{beltran2020}. Details of the analysis and code used to make plots can
+be found in the package documentation.
+
+
+\subsection*{Analytical Theory and Simulation Code}
+
+The code used to simulate our model can be run using the
+\texttt{mla.examples.burgess.simulation} module, which uses our \texttt{wlcsim}
+code~\cite{macpherson2018} on the backend. Briefly, the parameters used were $N
+= 101$ beads per chromosome spanning $L = \SI{17475}{\nano\meter}$ of linear
+chain (the length of ChrV assuming an average nucleosome inter-dyad distance of \SI{162}{\basepair}, i.e.\ \SI{15}{\basepair} linker lengths), a nuclear
+radius of $R = \SI{1000}{\nano\meter}$, a Kuhn length of
+$\SI{15}{\nano\meter}$ (based on the average linker length of \SI{15}{\basepair}\cite{beltran2019}), and a diffusion coefficient of $D =
+\SI{2e7}{\nano\meter\squared\per\second}$. While $D$ was chosen to match the time scales measured in the experiment, we emphasize that modifying the value of $D$ merely scales our results linearly in the time axis.
+
+The code used to compute the analytical MSCD curves can also be found in the
+\texttt{wlcsim} codebase under the \texttt{wlcsim.analytical.homolog} module (for documentation, see \url{https://wlcsim.readthedocs.io}). Briefly, the MSCD calculation is broken down into two cases. In the case where the loci are in between two linkage sites, we treat them as being on an isolated ring polymer whose size is chosen to match the effective ring formed by the two homologous segments holding each locus (which are tethered at either end by the linkage site). This effective ring is outlined in white for cells 1 and 4 in Fig.~\ref{fig:mscd-cells}.
+Otherwise, we treat the loci as being on an isolated linear polymer meant to represent the segment of chain running from the end of the first chromosome to one locus, then from that loci to the linkage site, from the linkage site to the other loci, and finally from that loci to the end of the second chromosome.
+While both of these approximations ignore the effect of the extra drag on the linkage site imposed by the rest of the polymer, adding this extra drag term would change only our estimate for the diffusivity of a Kuhn segment, $D$, which (as mentioned above) does not affect any of our results.
+
+\subsection*{Statistics}
+
+Unless otherwise indicated, variation was measured between experimental
+replicates for each condition using; Jeffrey's 95\% confidence intervals (CI)
+for proportion response variables (fraction paired, cell type) or standard error
+of the mean (SEM) for continuous response variables (distance, MSCD).
+%Wait time confidence intervals were calculated using a bootstrapping approach as described in texttt{mla.bootstrapped\_pmf\_confint()}.
+%For wait time comparisons between conditions, only the sample with the smaller sample size was used for bootstrapping and the significance level was set to alpha = 0.05/number of bins.
+
+\subsection*{Data availability}
+
+The raw image data was deposited to the Image Data Resource
+(\url{http://idr.openmicroscopy.org}) under accession number idr0063. The
+scripts required to reproduce the processed data are available on GitHub[da]
+(\url{https://github.com/ucdavis/SeeSpotRun}); this includes the MATLAB
+interfaces for spot calling, and the Python scripts for preparing the final xyz
+position dataset. The Python module used for downstream analysis also contains
+the final dataset used in the present study, and can be downloaded from the
+standard Python repositories by executing \texttt{pip install
+multi\_loci\_analysis}.
+
+
+% show acknowledgements section
+\acknow{}
+\showacknow{}
+
+We thank the lab of Angelika Amon for our FROS strains.
+
+This work was supported by The National Institutes of Health (NIH), grant: R01GM075119.
+We thank the Light Microscopy Imaging Facility (Molecular and Cellular Biology, UC, Davis).
+Financial support for A. J. S. is provided by the National Science Foundation, Physics of Living Systems Program (PHY-1707751).
+B. B. acknowledges funding support from the NSF Graduate Fellowship program (DGE-1656518). B. B. acknowledges support from the NIH training grant (T32GM008294).
+
+
+\bibliography{burgess-pnas-2020}
+
+
+\end{document}
+
+
+
+
+
