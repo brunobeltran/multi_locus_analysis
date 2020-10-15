@@ -6,6 +6,12 @@ install:
 - pip install -e .
 script:
 - pytest
+addons:
+  apt:
+    update:
+      true
+before-install:
+    - sudo apt-get -y install python3-pyqt5
 deploy:
   provider: pypi
   user: bbeltr1
