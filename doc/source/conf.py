@@ -14,15 +14,13 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../..'))
-sys.path.insert(0, os.path.abspath('..'))
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 # -- Project information -----------------------------------------------------
 
 project = 'multi_locus_analysis'
-copyright = '2018, Bruno Beltran'
+copyright = '2020, Bruno Beltran'
 author = 'Bruno Beltran'
 import multi_locus_analysis
 # The short X.Y version
@@ -93,6 +91,11 @@ exclude_patterns = []
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
+
+rst_prolog = """
+.. |nbsp| unicode:: 0xA0
+   :trim:
+"""
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -190,11 +193,14 @@ todo_include_todos = True
 
 # -- Intersphinx ------------------------------------------------
 
-intersphinx_mapping = {'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-                       'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
-                       'matplotlib': ('http://matplotlib.org/', None),
-                       'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
-                       'statsmodels': ('http://www.statsmodels.org/stable/', None)}
+intersphinx_mapping = {
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
+    'matplotlib': ('http://matplotlib.org/', None),
+    'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
+    'statsmodels': ('http://www.statsmodels.org/stable/', None),
+    'wlcsim': ('https://wlcsim.rtfd.io/', None)
+}
 
 # -- Manual extensions ------------------------------------------------------
 

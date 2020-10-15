@@ -118,14 +118,14 @@ def pos_to_all_vel(trace, xcol='x', ycol='y', zcol=None, framecol='i',
     # reset index just in case
     trace = trace.reset_index()
 
-    t = trace[framecol]
+    t = trace[framecol].to_numpy()
     ti = t[:,None] - np.zeros_like(t)[None,:]
     tf = t[None,:] - np.zeros_like(t)[:,None]
     dt = tf - ti
 
     # always call output x, y, z, regardless of input
     cols = {'x': xcol, 'y': ycol, 'z': zcol}
-    xs = {c: trace[col] for c, col in cols.items() if col is not None}
+    xs = {c: trace[col].to_numpy() for c, col in cols.items() if col is not None}
     vs = {'v' + col: x[None,:] - x[:,None] for col, x in xs.items()}
 
     good_dt = dt >= 0

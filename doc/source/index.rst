@@ -25,6 +25,10 @@ Theory <theory>`. Custom plotting code used in the :ref:`theory <theory>`
 section is documented in our :ref:`plotting guide <plots>`, but for actual
 example plots, see the other tutorials.
 
+For a full walkthrough of how this code was used to analyze tens of thousands
+of homologous locus trajectories across dozens of experimental conditions, see
+the our :ref:`Analyzing homologous loci example <homolog_example>`.
+
 .. toctree::
     :maxdepth: 1
 
@@ -33,6 +37,7 @@ example plots, see the other tutorials.
     Analytical Theory <theory>
     Plotting <plots>
     API reference <api>
+    Homologs Example <homolog_example>
 
 Indices and tables
 ==================

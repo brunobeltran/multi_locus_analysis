@@ -302,6 +302,7 @@ what follows.
 .. plot::
     :nofigs:
     :context: close-figs
+
     >>> import scipy.stats
     >>> from multi_locus_analysis import finite_window as fw
     >>> e44 = scipy.stats.expon(scale=4, loc=4)
@@ -320,6 +321,7 @@ time).
 
 .. plot::
     :context:
+
     >>> plt.figure(figsize=[4,3])
     >>> plt.hist(trajs['start_times'].values, 100)
     >>> plt.xlim([0, 20])
@@ -335,6 +337,7 @@ end of the observation interval, :math:`t=T`, is uniformly distributed in
 
 .. plot::
     :context: close-figs
+
     >>> plt.figure(figsize=[4,3])
     >>> t01 = trajs[trajs['start_time'] < 0]
     >>> u = -t01['start_time']/(t01['end_time'] - t01['start_time'])
@@ -375,6 +378,7 @@ that :math:`t` is.
 
 .. plot::
     :context: close-figs
+
     >>> plt.figure(figsize=[4,3])
     >>> a1 = t01[t01['state'] == 'exp(4,4)']
     >>> x, cdf = fw.ecdf(a1['end_time'] - a1['start_time'])
