@@ -1,3 +1,4 @@
+doc/source/pnas_data
 # enough temporary data files to exclude by default
 *.csv
 

@@ -199,7 +199,7 @@ intersphinx_mapping = {
     'matplotlib': ('http://matplotlib.org/', None),
     'pandas': ('https://pandas.pydata.org/pandas-docs/stable/', None),
     'statsmodels': ('http://www.statsmodels.org/stable/', None),
-    'wlcsim': ('https://wlcsim.rtfd.io/', None)
+    'wlcsim': ('https://wlcsim.readthedocs.io/en/latest/', None)
 }
 
 # -- Manual extensions ------------------------------------------------------
