@@ -13,7 +13,7 @@ import multiprocessing
 def test_cvv_produces_msd():
     pass
 
-def f(p):
+def _rouse_cvv(p):
     return analytical.rouse_cvv(*p)
 
 @pytest.mark.skip(reason='Test should only run by hand...lengthy.')
@@ -30,7 +30,7 @@ def test_cvv_versus_tom():
     params = np.stack(list(itertools.product(deltaOverTDeltaNs, alphas)))
     full_params = list(map(lambda p: analytical.un_rouse_nondim(tOverDeltas, *p), params))
     with multiprocessing.Pool(31) as p:
-        cvvs = p.map(f, full_params)
+        cvvs = p.map(_rouse_cvv, full_params)
     df = pd.DataFrame(np.stack(cvvs))
     df['deltaOverTDeltaN'] = params[:,0]
     df['alpha'] = params[:,1]
