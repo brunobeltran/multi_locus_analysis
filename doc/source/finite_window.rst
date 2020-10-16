@@ -192,7 +192,7 @@ A Caveat for Discrete Movies
 
 While we would ideally have an exact measurement of when transitions between
 `A` and `B` states happen, it is more often the case that we have a "movie" of
-sorts: where we measure the state of the system at a fixed set of times.
+sorts: where we measure the state of the system at a fixed set of *frames*.
 
 This only provides us with upper and lower bounds for the actual waiting time
 that we're trying to observe. For example, consider the trajectory depicted

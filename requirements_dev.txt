@@ -1,7 +1,9 @@
 -r requirements.txt
 black
 pytest
+scikit-image
 sphinx
 sphinx-rtd-theme
+sphinxcontrib-bibtex
 lifelines
 

@@ -50,6 +50,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosummary',
     'matplotlib.sphinxext.plot_directive',
+    'sphinxcontrib.bibtex',
 ]
 
 # Autodoc settings
