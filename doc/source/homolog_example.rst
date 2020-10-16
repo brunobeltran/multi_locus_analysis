@@ -34,6 +34,12 @@ our matplotlib style:
 Description of the data
 -----------------------
 
+.. plot::
+    :nofigs:
+    :context:
+
+    >>> from multi_locus_analysis.examples import burgess
+
 Our study used yeast strains containing chromosomes carrying FROS tags,
 comprised of chromosomally-integrated *tet* operator arrays of 112 repeats bound
 by fluorescent TetR-GFP protein.  Operators were inserted at
@@ -101,6 +107,21 @@ exist for cells entering meiosis, so we will instead use the convex hull of the
 volume explored by our tagged loci to estimate the nuclear radius (more
 precisely, to set a lower bound on this radius).
 
+
+.. plot::
+    :context:
+
+    >>> from multi_locus_analysis.stats import convex_hull
+    >>> fig, ax = plt.subplots(constrained_layout=True, figsize=(col_width, golden_ratio*col_width))
+    >>> chull_volume = burgess.df \
+    >>>     .groupby(burgess.cell_cols) \
+    >>>     .apply(convex_hull, xcol='X', ycol='Y', zcol='Z', volume=True)
+    >>> volume_to_r = lambda V: np.power(3/4/np.pi*V, 1/3)
+    >>> chull_volume.loc['HET5', 'WT', :, 't5'] \
+    >>>             .apply(volume_to_r) \
+    >>>             .hist(ax=ax)
+    >>> ax.set_xlabel(r'Nuclear Radius ($\mu{}m$)')
+    >>> ax.set_ylabel('Count')
 
 
 Determining diffusivity
