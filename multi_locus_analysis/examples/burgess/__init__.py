@@ -65,15 +65,29 @@ Data columns
 """
 # required for importing data
 from ...dataframes import pivot_loci
-# for processing data
-from ...stats import pos_to_all_vel, vels_to_cvvs_by_hand, vvc_stats_by_hand, cvv_by_hand_make_usable
-from ...finite_window import discrete_trajectory_to_wait_times
-from ...fitting import get_best_fit_fixed_beta
 
 import pandas as pd
 import numpy as np
 
 from pathlib import Path
+
+# known biological constants, in bp
+chrv_size_bp = 576874
+location_ura_bp = np.mean([116167, 116970])
+location_cen5_bp = np.mean([151987, 152104])
+ura_locus_frac = location_ura_bp/chrv_size_bp
+chrv_centromere_frac = location_cen5_bp/chrv_size_bp
+# effective nucleosome chain parameters
+kuhn_length_nuc_chain = 0.015  # um
+chrv_size_kuhn = 1165  # see discussion in "example-homolog" docs
+chrv_size_effective_um = chrv_size_kuhn*kuhn_length_nuc_chain
+location_ura_effective_um = location_ura_bp*(chrv_size_effective_um
+                                             / chrv_size_bp)
+# derived parameters
+nuc_radius_um = 1.3  # Average of het5 msd convex hull distribution
+sim_nuc_radius_um = 1
+sim_D = 20  # um^2/s, old value used for existing sims, 10/2020
+D = 0.02  # see discussion in "determining-diffusivity" docs
 
 burgess_dir = Path(__file__).resolve().parent
 
@@ -87,6 +101,7 @@ spot_cols = cell_cols + ['frame', 'spot']
 
 df_xyz = pd.read_csv(burgess_dir / Path('xyz_conf_okaycells9exp.csv'))
 
+
 def add_foci(df):
     """Extract a column labeling whether the loci are paired at each frame.
 
@@ -99,7 +114,7 @@ def add_foci(df):
     """
     foci1 = (np.isfinite(df.X1) & np.isfinite(df.Y1) & np.isfinite(df.Z1))
     foci2 = (np.isfinite(df.X2) & np.isfinite(df.Y2) & np.isfinite(df.Z2))
-    notfoci2 = ~((np.isfinite(df.X2) | np.isfinite(df.Y2) | np.isfinite(df.Z2)))
+    notfoci2 = ~(np.isfinite(df.X2) | np.isfinite(df.Y2) | np.isfinite(df.Z2))
     paired = foci1 & notfoci2
     unpaired = foci1 & foci2
     foci_col = df.observation.copy()
@@ -108,6 +123,7 @@ def add_foci(df):
     foci_col[~(paired | unpaired)] = np.nan
     df['foci'] = foci_col
     return df
+
 
 def pixels_to_units(df):
     """Keep track of necessary conversions into real units. For now all
@@ -129,6 +145,7 @@ def pixels_to_units(df):
     df['Y2'] *= 10*y_pix_to_um
     df['Z2'] *= 10*z_pix_to_um
 
+
 def replace_na(df):
     """Assuming we have add_foci'd, we don't *need* to artificially set the
     second trajectory's values to NaN, so undo that here."""
@@ -138,6 +155,7 @@ def replace_na(df):
     for i in ['X', 'Y', 'Z']:
         df.loc[np.isnan(df[i+'2']), i+'2'] = df.loc[np.isnan(df[i+'2']), i+'1']
     return df
+
 
 def breakup_by_na(traj):
     """Take a Burgess trajectory, and create a new column "na_id" that
@@ -162,6 +180,7 @@ def breakup_by_na(traj):
     traj['na_id'] = np.cumsum(break_on)
     return traj
 
+
 def add_wait_id(traj):
     """Take a single Burguess "cell", and add a column that uniquely tracks the
     individual stretches of time over which that cell has "pair" or "unp" loci.
@@ -178,9 +197,12 @@ def add_wait_id(traj):
 
 
 def munge_data(df):
-    # munge the raw data provided by Trent from the Burgess lab into the format our
-    # code expects
-    # df = df[df['observation'] == 'Okay'] # already done by trent for this file
+    """
+    Munge raw data provided by Trent from the Burgess lab into desired format.
+
+    Trent already does the equivalent of df = df[df['observation'] == 'Okay'],
+    by manually classifying trajectories, largely...
+    """
     df = add_foci(df)
     del df['observation']
     del df['desk']
@@ -200,6 +222,7 @@ def munge_data(df):
         df_flat['d'+X] = df_flat[X+'2'] - df_flat[X+'1']
     return df, df_flat
 
+
 df_file = burgess_dir / Path('df.csv')
 df_flat_file = burgess_dir / Path('df_flat.csv')
 if not (df_file.exists() and df_flat_file.exists()):
@@ -214,10 +237,10 @@ else:
     df_flat = pd.read_csv(df_flat_file)
     df_flat.set_index(frame_cols, inplace=True)
 
-# API
-from . import analysis
-from . import msds
-from . import plotting
-from . import simulation
-from . import workflow
 
+# API
+from . import analysis  # NOQA
+from . import msds  # NOQA
+from . import plotting  # NOQA
+from . import simulation  # NOQA
+from . import workflow  # NOQA
