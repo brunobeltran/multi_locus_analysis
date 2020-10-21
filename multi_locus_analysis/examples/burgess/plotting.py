@@ -94,16 +94,18 @@ def per_cell_msd(msd, cond=None, skip=None, curve_count=10, tri_x0=None,
                                  label=r'$\alpha=0.5$')
 
 
-def draw_cells(linkages, min_y=0.05, max_y=0.95, label_loc=location_ura_bp,
-               cen_loc=location_cen5_bp, chr_size=chrv_size_bp):
+def draw_cells(cells, min_y=0.05, max_y=0.95, label_loc=location_ura_bp,
+               cen_loc=location_cen5_bp, chr_size=chrv_size_bp,
+               label_colors=None, ax=None):
     r"""
     Render the model of homologous chromosomes with linkages.
 
     Parameters
     ----------
-    linkages : float array
-        List of the link positions between the homologous chromosomes. Array
-        *MUST* be sorted.
+    cells : array of float array
+        Each element should be a list of the link positions between the
+        homologous chromosomes for a given cell. The array corresponding to
+        each cell *MUST* be sorted.
     min_y : float
         Bottom of chromosome line in figure coordinates.
     max_y : float
@@ -114,20 +116,23 @@ def draw_cells(linkages, min_y=0.05, max_y=0.95, label_loc=location_ura_bp,
         Centromere location.
     chr_size : float
         Total length of chromosome.
+    label_colors : Sequence[Color-like], optional
+        If provided, the cells will have colored labels, Cell 1, Cell 2, ...
     """
     def chr_coords(s):
         """Map from [0, 1] to locaion on plot."""
         return max_y - (max_y - min_y)*s
     # rescale linkages to [0, 1]
-    linkages = [np.array(links) / chr_size for links in linkages]
-    n_cells = len(linkages)
+    cells = [np.array(links) / chr_size for links in cells]
+    n_cells = len(cells)
     # and all relevant locations
     locus_frac = label_loc / chr_size
     centromere_frac = cen_loc / chr_size
-    # fill entire figure with invisible axes to draw in
-    fig = plt.figure(figsize=(col_width, col_width/golden_ratio))
-    ax = fig.add_axes([0, 0, 1, 1])
-    plt.axis('off')
+    if ax is None:
+        # fill entire figure with invisible axes to draw in
+        fig = plt.figure(figsize=(col_width, col_width/golden_ratio))
+        ax = fig.add_axes([0, 0, 1, 1])
+    ax.axis('off')
     # center each of N "cells" directly between N+1 fenceposts spanning [0, 1]
     n_fences = n_cells + 1
     fence_posts = np.linspace(0, 1, n_fences)
@@ -138,38 +143,47 @@ def draw_cells(linkages, min_y=0.05, max_y=0.95, label_loc=location_ura_bp,
     chr_width = 15
     for i, x in enumerate(cell_centers):
         for dx in [width_to_chr_center, -width_to_chr_center]:
-            plt.plot([[x + dx, x + dx], [x + dx, x + dx]],
-                     [[chr_coords(0), chr_coords(centromere_frac)],
-                      [chr_coords(centromere_frac), chr_coords(1)]],
-                     transform=ax.transAxes, linewidth=chr_width,
-                     solid_capstyle='round', color=[197/255, 151/255, 143/255])
-            plt.scatter([x + dx], [chr_coords(centromere_frac)],
-                        zorder=10, transform=ax.transAxes, s=200, color='k')
-            plt.scatter([x + dx], [chr_coords(locus_frac)],
-                        zorder=15, transform=ax.transAxes, s=500, color='g',
-                        marker='*', edgecolors='k')
-        for linkage in linkages[i]:
-            plt.plot([x - width_to_chr_center, x + width_to_chr_center],
-                     2*[chr_coords(linkage)],
-                     color=(0, 0, 1), transform=ax.transAxes,
-                     linewidth=5, solid_capstyle='round')
-        num_linkages = len(linkages[i])
-        j = np.searchsorted(linkages[i], locus_frac)
+            ax.plot([[x + dx, x + dx], [x + dx, x + dx]],
+                    [[chr_coords(0), chr_coords(centromere_frac)],
+                     [chr_coords(centromere_frac), chr_coords(1)]],
+                    transform=ax.transAxes, linewidth=chr_width,
+                    solid_capstyle='round', color=[197/255, 151/255, 143/255])
+            ax.scatter([x + dx], [chr_coords(centromere_frac)],
+                       zorder=10, transform=ax.transAxes, s=200, color='k')
+            ax.scatter([x + dx], [chr_coords(locus_frac)],
+                       zorder=15, transform=ax.transAxes, s=500, color='g',
+                       marker='*', edgecolors='k')
+        for linkage in cells[i]:
+            ax.plot([x - width_to_chr_center, x + width_to_chr_center],
+                    2*[chr_coords(linkage)],
+                    color=(0, 0, 1), transform=ax.transAxes,
+                    linewidth=5, solid_capstyle='round')
+        num_linkages = len(cells[i])
+        j = np.searchsorted(cells[i], locus_frac)
         closest_links = []
         if j != 0:
-            closest_links.append(linkages[i][j - 1])
+            closest_links.append(cells[i][j - 1])
         if j != num_linkages:
-            closest_links.append(linkages[i][j])
+            closest_links.append(cells[i][j])
         closest_links = np.array(closest_links)
         if len(closest_links) > 0:
             linewidths = 1.2*np.ones_like(closest_links)
             closestest_link = np.argmin(np.abs(closest_links - locus_frac))
             linewidths[closestest_link] = 3.5
         for k, linkage in enumerate(closest_links):
-            plt.plot([x - width_to_chr_center, x - width_to_chr_center,
-                      x + width_to_chr_center, x + width_to_chr_center],
-                     [chr_coords(locus_frac), chr_coords(linkage),
-                      chr_coords(linkage), chr_coords(locus_frac)],
-                     color=(1, 1, 1), transform=ax.transAxes,
-                     linewidth=linewidths[k], linestyle='--',
-                     dash_capstyle='butt', zorder=100)
+            ax.plot([x - width_to_chr_center, x - width_to_chr_center,
+                     x + width_to_chr_center, x + width_to_chr_center],
+                    [chr_coords(locus_frac), chr_coords(linkage),
+                     chr_coords(linkage), chr_coords(locus_frac)],
+                    color=(1, 1, 1), transform=ax.transAxes,
+                    linewidth=linewidths[k], linestyle='--',
+                    dash_capstyle='butt', zorder=100)
+        if label_colors:
+            # add extra height above chromosomes to account for rounded end
+            # caps and then some extra
+            ax.transAxes
+            ax.text(x, max_y, f'Cell {i}\n', ha='center',
+                    va='bottom', color=label_colors[i],
+                    transform=ax.transAxes,
+                    fontsize=mpl.rcParams['axes.titlesize'])
+    return ax

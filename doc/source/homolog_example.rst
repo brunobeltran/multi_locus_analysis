@@ -109,7 +109,7 @@ precisely, to set a lower bound on this radius).
 
 
 .. plot::
-    :context:
+    :context: close-figs
 
     >>> from multi_locus_analysis.stats import convex_hull
     >>> fig, ax = plt.subplots(constrained_layout=True, figsize=(col_width, golden_ratio*col_width))
@@ -129,6 +129,33 @@ Determining diffusivity
 
 TODO: fit initial power-law slope of WT URA t3 to analytical theory to determine
 D.
+
+Example "cells"
+---------------
+
+Given all of these parameters, we can now use our model to visualize how
+heterogeneity between individual cells affects the single-cell MSCD curves, and
+compare that to what we see in the experiments. Consider the following example
+cells:
+
+.. plot::
+    :context: close-figs
+
+    >>> from multi_locus_analysis.examples.burgess import plotting as mplt
+    >>> cells = [homolog.generate_poisson_homologs(4, burgess.chrv_size_bp)
+    >>>          for i in range(5)]
+    >>> mplt.draw_cells(cells)
+
+
+.. plot::
+    :context: close-figs
+
+    >>> t = np.arange(30, 1501, 30)
+    >>> plateaus = [homolog.mscd_plateau(links) for links in cells]
+    >>> i = np.argsort(plateaus)
+    >>> for i, cell in enumerate(cells):
+    #TODO: change everything (draw_cells) to um
+
 
 .. include:: determining-diffusivity.rst
 

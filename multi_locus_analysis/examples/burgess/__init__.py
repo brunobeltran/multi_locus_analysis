@@ -83,6 +83,8 @@ chrv_size_kuhn = 1165  # see discussion in "example-homolog" docs
 chrv_size_effective_um = chrv_size_kuhn*kuhn_length_nuc_chain
 location_ura_effective_um = location_ura_bp*(chrv_size_effective_um
                                              / chrv_size_bp)
+location_cen5_effective_um = location_cen5_bp*(chrv_size_effective_um
+                                               / chrv_size_bp)
 # derived parameters
 nuc_radius_um = 1.3  # Average of het5 msd convex hull distribution
 sim_nuc_radius_um = 1
