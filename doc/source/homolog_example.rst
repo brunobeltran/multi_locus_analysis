@@ -55,22 +55,22 @@ colocalized again during prophase |nbsp| I:
     :alt: Figure showing (a) prophase stages, (b) colocalization progression, and (c) tagged locus genomic locations
 
     A schematic of the relative timing of the chromosome events of meiosis in
-    SK1 strains of budding yeast, :cite:`padmore1991,weiner1994,
-    cha2000,tesse2003,brar2009,borner2004,peoples2002`. (a) Chromosomes in
-    pre-meiotic cells arrested in G0 are in the Rabl configuration with
-    centromeres tethered to the nuclear periphery. (b) Early to mid prophase is
-    marked by DSB formation and the initiation of synapsis. (c) Late prophase
-    is marked by the end-to-end alignment of homologs by the synaptonemal
-    complex. (d) Fraction cells over time that demonstrate colocalization of
-    the *URA3* locus and completion of meiosis I (MI). The x-axis measures the
-    time :math:`T_i` (:math:`i` hours) after induction of sporulation that the
-    cells in question were prepared for imaging. Pre-meiotic colocalization is
-    lost during DNA replication and is restored during meiotic prophase,
-    culminating in the full-length alignment of homologs joined by the
-    synaptonemal complex (SC). Soon afterwards, cells begin to complete meiosis
-    I (MI). (e) The relative positions along the chromosome of our tagged loci
-    are shown. These loci were chosen to probe the dependence of colocalization
-    on centromere proximity.
+    SK1 strains of budding yeast,
+    :cite:`padmore1991,weiner1994,cha2000,tesse2003,brar2009,borner2004,peoples2002`.
+    (a) Chromosomes in pre-meiotic cells arrested in G0 are in the Rabl
+    configuration with centromeres tethered to the nuclear periphery. (b) Early
+    to mid prophase is marked by DSB formation and the initiation of synapsis.
+    (c) Late prophase is marked by the end-to-end alignment of homologs by the
+    synaptonemal complex. (d) Fraction cells over time that demonstrate
+    colocalization of the *URA3* locus and completion of meiosis I (MI). The
+    x-axis measures the time :math:`T_i` (:math:`i` hours) after induction of
+    sporulation that the cells in question were prepared for imaging.
+    Pre-meiotic colocalization is lost during DNA replication and is restored
+    during meiotic prophase, culminating in the full-length alignment of
+    homologs joined by the synaptonemal complex (SC). Soon afterwards, cells
+    begin to complete meiosis I (MI). (e) The relative positions along the
+    chromosome of our tagged loci are shown. These loci were chosen to probe the
+    dependence of colocalization on centromere proximity.
 
 We wish to uncover what the forces are pulling these loci together. In order to
 do so, we must first establish a baseline model for what the diffusion of these
@@ -154,6 +154,7 @@ cells:
     >>> plateaus = [homolog.mscd_plateau(links) for links in cells]
     >>> i = np.argsort(plateaus)
     >>> for i, cell in enumerate(cells):
+    >>>     pass
     #TODO: change everything (draw_cells) to um
 
 
