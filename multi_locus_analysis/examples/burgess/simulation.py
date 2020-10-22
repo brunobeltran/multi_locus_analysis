@@ -17,10 +17,19 @@ from pscan import Scan
 
 from ... import finite_window as fw
 
-N = int(1e2+1); L = 17475; R = 1000; b = 15; D = 2e7 # ChrV
+N = int(1e2+1); L = 17.475; R = 1.3; b = 0.015; D = 2.8 # ChrV
 Aex = 100; # strength of force confining beads within nucleus
 dt = rouse.recommended_dt(N, L, b, D)
 ura3_bead = 20;
+
+# 10 repeats each of FP=[0, 0.02, 0.05, 0.1] on one 32 core node takes about
+# ~1min to run for Nt=1e5,
+# ~14min for Nt=1e6
+# ~3.2hrs for Nt=1e7
+# TBD for Nt=1e8
+Nt = 1e8  # total number of equi-space time steps, about 2500s
+Nlin = 1e3  # how many time steps per log-spaced group
+overlap = 0.43  # chosen to get times similar to experiment
 
 def run_interior_sim(FP):
     """for various different "connectivities" (fraction of beads "homolog
@@ -31,15 +40,8 @@ def run_interior_sim(FP):
     tether_list = np.array([]).astype(int) # no tethered loci
 
     # now define the time grid on which to run the BD, and specify which of those times to save
-
-    # 10 repeats each of FP=[0, 0.02, 0.05, 0.1] on one 32 core node takes about
-    # ~1min to run for Nt=1e5,
-    # ~14min for Nt=1e6
-    # ~3.2hrs for Nt=1e7
-    # TBD for Nt=1e8
-    Nt = 1e8; # total number of equi-space time steps, about 2500s
-    t = np.arange(0, Nt*dt, dt) # take Nt time steps
-    t_i, i_i = bnp.loglinsample(Nt, 1e3, 0.43) # contains ~30,60,90,etc
+    t = np.arange(0, Nt*dt, dt)  # take Nt time steps
+    t_i, i_i = bnp.loglinsample(Nt, 1e3, 0.43)  # contains ~30,60,90,etc
     # i30 = np.argmin(np.abs(t - 30)) # index at "30s"
     # t_save = t[0::i30] # save every 30s
     t_save = t[t_i]
@@ -100,38 +102,51 @@ def save_interior_sim(p):
 
     # run and save simulation
     df = run_interior_sim(FP)
-    df.to_csv(sim_dir / Path('all_beads.csv'))
+    df.to_csv(sim_dir / Path('all_beads.csv'), index=False)
 
     # make sure to save parameters that were used
-    params = {'N': N, 'L': L, 'R': R, 'b': b, 'D': D, 'Aex': Aex, 'dt': dt}
-    with open(sim_dir / Path('params.pkl'), 'wb') as f:
-        pickle.dump(params, f)
+    pd.Series({
+        'N': N, 'L': L, 'R': R, 'b': b, 'D': D, 'Aex': Aex, 'dt': dt,
+        'Nt': Nt, 'Nlin': Nlin, 'linlog_overlap': overlap
+    }).to_csv('params.csv')
 
-def get_bead_df(base_dir):
+def get_bead_df(base_dir, bead_id=ura3_bead, force_redo=False):
     """Extracts all ura3 data from simulations in a set of directories."""
     dfs = []
     for sim in base_dir.glob('homolog-sim.*'):
-        try:
-            df = pd.read_csv(sim / Path('all_beads.csv'), index_col=0)
-        except:
+        sim_file = sim / Path('all_beads.csv')
+        if sim_file.exists() and not force_redo:
+            bead = pd.read_csv(sim_file)
+            dfs.append(bead)
             continue
         df['sim_name'] = sim
-        dfs.append(df[df['bead'] == ura3_bead])
-        dfs[-1].to_csv(sim / Path('ura3.csv'))
+        bead = df[df['bead'] == ura3_bead].copy()
+        t0 = df[df['t'] == df['t'].iloc[0]]
+        loops = t0.loc[t0.is_loop == 1, 'bead'].values
+        left_n = np.where(loops <= ura3_bead)[0]
+        bead['left_neighbor'] = loops[left_n[-1]] if len(left_n) > 0 else np.nan
+        right_n = np.where(loops >= ura3_bead)[0]
+        bead['right_neighbor'] = loops[right_n[0]] if len(right_n) > 0 else np.nan
+        bead['min_bead'] = t0['bead'].min()
+        bead['max_bead'] = t0['bead'].max()
+        dfs.append(bead)
+        dfs[-1].to_csv(sim_file)
+
     df = pd.concat(dfs, ignore_index=True)
     df = df.set_index(['FP', 'sim_name', 'bead', 't'])
     df = df.sort_index()
     df = add_paired_cols(df)
-    df.to_csv(base_dir / Path('all_ura3.csv'))
+    df.to_csv(base_dir / Path(f'all_bead_{bead_id}.csv'))
     return df
 
-def select_exp_times(base_dir, Nt=1e8, t=None):
+def select_exp_times(base_dir, Nt=1e8, bead_id=ura3_bead, t=None,
+                     force_redo=False):
     base_dir = Path(base_dir)
-    ura3_file = base_dir / Path('all_ura3.csv')
-    if not ura3_file.exists():
+    bead_file = base_dir / Path(f'all_bead_{bead_id}.csv')
+    if not bead_file.exists() or force_redo:
         df = get_bead_df(base_dir)
     else:
-        df = pd.read_csv(ura3_file)
+        df = pd.read_csv(bead_file)
     # # find the ones that look like experiment times
     # desired_t = np.arange(0, 1501, 30)
     # sim_t = df['t'].unique()
@@ -149,7 +164,8 @@ def select_exp_times(base_dir, Nt=1e8, t=None):
 
 def add_paired_cols(df, paired_distances=None):
     if paired_distances is None:
-        paired_distances = [10, 50, 100, 250, 500, 750, 1000]
+        # paired_distances = [10, 50, 100, 250, 500, 750, 1000]
+        paired_distances = [250]
     df['dX'] = np.sqrt(
             np.power(df['X2'] - df['X1'], 2)
             + np.power(df['Y2'] - df['Y1'], 2)
@@ -215,7 +231,8 @@ def plot_interior_times(waitdf):
     return fig_pair, fig_unpair
 
 
-def run_homolog_param_scan(base_name=None):
+def run_homolog_param_scan(fp_list=np.linspace(0, 0.1, 11), replicates=25,
+                           base_name=None):
     if base_name is None:
         # save each run of this script in a unique directory
         base_name = './homolog-sim/no-tether-more-saves'
@@ -230,15 +247,16 @@ def run_homolog_param_scan(base_name=None):
     #     except OSError:
     #         run_num = run_num + 1
 
-    # jk no, don't do that
+    # jk no, don't do that. much more useful to be able to re-run script and
+    # just get more replicates
     base_dir = base_name
 
     # set up parameters (FP, tether lists, output directories)
-    params = {'FP': [0.06, 0.07, 0.08, 0.09],
+    params = {'FP': fp_list,
               'tether_list': [np.array([]).astype(int)],
               'output_dir': [base_dir]}
     scan = Scan(params)
-    scan.add_count(lambda p: 25)
+    scan.add_count(lambda p: replicates)
 
     # set up multiprocessing
     num_cores = multiprocessing.cpu_count() - 1

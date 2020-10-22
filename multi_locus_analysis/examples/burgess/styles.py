@@ -5,9 +5,11 @@ from matplotlib import ticker
 import matplotlib.font_manager
 from skimage import color
 
+import warnings
+
 
 if 'Fira' not in matplotlib.font_manager.findfont('Fira Sans'):
-    raise OSError('Fira Sans font not installed, or matplotlib font cache out '
+    warnings.warn('Fira Sans font not installed, or matplotlib font cache out '
                   'of date.')
 
 col_width = 3.405  # in, size of figure width=\columnwidth

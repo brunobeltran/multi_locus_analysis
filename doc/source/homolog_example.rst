@@ -34,12 +34,6 @@ our matplotlib style:
 Description of the data
 -----------------------
 
-.. plot::
-    :nofigs:
-    :context:
-
-    >>> from multi_locus_analysis.examples import burgess
-
 Our study used yeast strains containing chromosomes carrying FROS tags,
 comprised of chromosomally-integrated *tet* operator arrays of 112 repeats bound
 by fluorescent TetR-GFP protein.  Operators were inserted at
@@ -76,13 +70,94 @@ We wish to uncover what the forces are pulling these loci together. In order to
 do so, we must first establish a baseline model for what the diffusion of these
 loci would look like in the absense of any force.
 
-
-Parameterization of Rouse model
--------------------------------
+Confined Rouse polymer with linkages
+------------------------------------
 
 The Rouse model is the most basic possible model for a diffusing polymer, and
 applies even to semiflexible polymers such as DNA at long enough length and
 time scales (significantly longer than the persistence length).
+
+TODO: describe the model more in detail, especially linkages, and relevant
+parameters.
+
+Running the Simulation
+^^^^^^^^^^^^^^^^^^^^^^
+
+The code used to run our simulations (including the final parameters chosen) can
+be reproduced by running:
+
+.. code:: bash
+
+    >>> python -m multi_locus_analysis.examples.burgess.simulation
+
+In short, this calls `~.simulation.run_homolog_param_scan`, which parallelizes
+the running of `~.simulation.run_interior_sim` for various values of the mean
+linkage density :math:`mu`. These calls are wrapped in the
+`~.simulation.save_interior_sim` function to ensure that each individual
+simulation is saved to its own sub-directory (making this parallelization
+thread-safe, and even multi-node safe). The output of this command will be a
+directory structure that looks like:
+
+.. code:: bash
+
+    >>> tree homolog-sim | head
+    homolog-sim
+    ├── homolog-sim.tower13.1
+    │   ├── all_beads.csv
+    │   └── params.pkl
+    ├── homolog-sim.tower13.10
+    │   ├── all_beads.csv
+    │   └── params.pkl
+    .
+    .
+    .
+
+where each folder is named ``"{base_name}/{base_name}.{hostname}.{i}"``, and the
+code guarantees a unique folder name ``{base_name}.{hostname}.{i}`` per
+simulation. The ``params.pkl`` file holds the parameters that were passed to
+`wlcsim.bd.homolog.rouse`. Each ``all_beads.csv`` file contains a Pandas
+dataframe, a representative example might look like:
+
+.. code:: python
+
+    >>> all_beads.head()
+        t  bead         X1   ...         Z2  is_loop  is_tether    FP
+    0  0.0     0   0.000000  ...  23.677611        0          0  0.04
+    1  0.0     1  -0.357303  ...  27.119501        0          0  0.04
+    2  0.0     2 -14.284399  ...  12.135141        0          0  0.04
+    3  0.0     3 -29.879801  ...  16.638270        0          0  0.04
+    4  0.0     4 -71.418055  ... -61.567177        0          0  0.04
+
+where ``'t'`` is the simulation time, ``'bead'`` is the bead index, ``'X{i}'``
+is the :math:`x`-coordinate of polymer :math:`i` (since we're simulating
+a homologous pair, :math:`i\in{1, 2}`), ``'is_loop'`` is true if that bead is a
+linkage, ``'is_tether'`` is true if that bead is tethered to the nuclear
+envelope, and ``'FP'`` is the fraction of beads that are linkages on average, in
+this simulation run.
+
+Parameterization of Rouse model
+-------------------------------
+
+Importing Raw Data
+^^^^^^^^^^^^^^^^^^
+
+First, we import the raw data from the examples module. For a complete
+description of each column, see the documentation in
+`.multi_locus_analysis.examples.burgess`.
+
+.. plot::
+    :nofigs:
+    :context:
+
+    >>> from multi_locus_analysis.examples import burgess
+    >>> burgess.df[['X', 'Y', 'Z']].head()
+
+    locus genotype exp.rep meiosis cell frame spot
+    HET5  WT       2       t0      1    1     1     2.13328  3.19992  7.75
+                                        2     1     2.53327  1.99995  7.75
+                                        3     1     2.66660  2.39994  7.50
+                                        4     1     2.79993  2.53327  7.50
+                                        5     1     2.93326  2.39994  7.50
 
 Justification for the Kuhn length
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -123,6 +198,11 @@ precisely, to set a lower bound on this radius).
     >>> ax.set_xlabel(r'Nuclear Radius ($\mu{}m$)')
     >>> ax.set_ylabel('Count')
 
+
+Phenomenological MSCD Correction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Unlike in our analytical theory, the
 
 Determining diffusivity
 ^^^^^^^^^^^^^^^^^^^^^^^
