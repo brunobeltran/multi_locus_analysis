@@ -81,6 +81,9 @@ location_cen5_bp = np.mean([151987, 152104])
 ura_locus_frac = location_ura_bp/chrv_size_bp
 chrv_centromere_frac = location_cen5_bp/chrv_size_bp
 
+# measurement parameters
+t_data = np.arange(0, 1501, 30).astype(float)
+
 # bare DNA wlc parameters
 kuhn_length_wlc = 0.05  # 50nm
 chrv_size_wlc_um = 0.34 * chrv_size_bp / 1000  # um
@@ -108,8 +111,7 @@ location_cen5_nuc_chain_um = location_cen5_bp*(
 nuc_radius_um = 1.3  # Average of het5 msd convex hull distribution
 sim_nuc_radius_um = 1
 old_sim_D = 20  # um^2/s, old value used for existing sims, 10/2020
-sim_D_bparams = 2  # see discussion in "determining-diffusivity" docs
-sim_D_aparams = 20 # see discussion in "determining-diffusivity" docs
+sim_D = 3.4872926794253383  # see discussion in "determining-diffusivity" docs
 
 # finally, the actual data
 burgess_dir = Path(__file__).resolve().parent

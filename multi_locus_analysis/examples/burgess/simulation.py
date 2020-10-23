@@ -18,7 +18,7 @@ from pscan import Scan
 from wlcsim.bd import rouse
 from wlcsim.bd import homolog
 
-from . import ura_locus_frac
+from . import sim_D, chrv_size_nuc_chain_um, kuhn_length_nuc_chain, nuc_radius_um
 from ... import finite_window as fw
 
 
@@ -287,7 +287,8 @@ def run_homolog_param_scan(fp_list=np.linspace(0, 0.1, 11), replicates=25,
     if material_params is None:
         material_params = {
              # ChrV
-            'N': int(1e2+1), 'L': 17.475, 'R': 1.3, 'b': 0.015, 'D': 2.8,
+            'N': int(1e2+1), 'L': chrv_size_nuc_chain_um, 'R': nuc_radius_um,
+            'b': kuhn_length_nuc_chain, 'D': sim_D,
             'Aex': 100  # strength of force confining beads within nucleus
         }
     if time_params is None:

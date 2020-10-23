@@ -298,6 +298,7 @@ Now we load in the simulation data:
 .. code:: python
 
     df_exp = pd.read_csv('_static/homologs/bead_20_exp.csv'))
+    df_exp = simulation.add_paired_cols(df_exp)
 
 We compute the "real" MSCDs first:
 
@@ -511,54 +512,143 @@ trajectories, since they are largely plateaus even at the shortest time scales
 of our experiment (:math:`t = 30s`). Therefore, in order to determine the time
 scale, we can look to the ensemble averaged MSCD curves.
 
-Since all of the length scales of the problem are now fixed, given a model for
-linkage formation along the chromosome, we can extract the average linkage
-spacing by simply looking at the plateau levels of ensemble averaged MSCD
-curves.
+Since we've now determined the mean linkage density for each time point, we can
+simply compute an ensemble average of our analytical MSCD curves to correspond
+to the ensemble average measurement, and fit the single parameter ``D`` to set
+the appropriate time scale. first, we load the data, and define an objective
+function that seeks to minimize the :math:`L^2` error between our analytical
+result and the experiment.
 
-While we are only measuring the loci that are more than 250nm apart from each
-other in our experiments, this same procedure can be repeated for comparable
-simulations to extract how large of a bias it should cause, then invert it.
-
-With the simulation output from running `burgess.simulations.run_interior_sim`
-(with post-processing via `burgess.simulations.get_bead_df` and
-`burgess.simulations.select_exp_times`) saved in a file (``df_exp.csv`` below),
-we can compute the simulation MSCD curves as follows:
 
 .. code:: python
 
-    import pandas as pd
-    import multi_locus_analysis as mla
-    import numpy as np
-    import matplotlib.pyplot as plt
+    # load in experimental data
+    msds_file = burgess.burgess_dir / Path('msds_dvel_unp.csv')
+    if not msds_file.exists():
+        burgess.msds.precompute_msds()
+    mscds = pd.read_csv(msds_file) \
+            .set_index(['locus', 'genotype', 'meiosis'])
+    # fit just against t3
+    mscd_ura_t3 = mscds.loc['URA3', 'WT', 't3'].sort_values('delta')
+    # from the plateaus array defined above
+    plateau = plateaus[('URA3', 'WT')]['t3']
+    # and the results of fitting mu with nuc_chain parameters
+    mu = fit_mus[('URA3', 'WT')]['t3']
+    t_data = burgess.t_data[:-1]  # mscd 'delta' only up to 1470
+    def compare_to_ura3(logD, N_cells=1000):
+        D = 10**logD
+        theory_mscds = np.zeros_like(t_data)
+        for j in range(N_cells):
+            theory_mscds += (1/N_cells) * homolog.mscd(
+                t_data,
+                homolog.generate_poisson_homologs(mu, chr_size=burgess.chrv_size_nuc_chain_um),
+                label_loc=burgess.location_ura_nuc_chain_um,
+                chr_size=burgess.chrv_size_nuc_chain_um,
+                nuc_radius=burgess.nuc_radius_um, b=burgess.kuhn_length_nuc_chain,
+                D=D*np.random.exponential()
+            )
+        theory_mscds = theory_mscds/theory_mscds[-1]*plateau
+        return -np.linalg.norm(theory_mscds - mscd_ura_t3['mean'])
 
-    df = pd.read_csv('doc/source/df_exp.csv')
-    df['t'] = (np.round(df['t'] / 30)*30).astype(int)
-    df['dX'] = df['X2'] - df['X1']
-    df['dY'] = df['Y2'] - df['Y1']
-    df['dZ'] = df['Z2'] - df['Z1']
+Now, we can perform optimization. Due to noisiness of the data, Gaussian
+Process-based optimization works the best:
 
-    all_dvel = df.groupby(['FP', 'sim_name']) \
-                 .apply(mla.stats.pos_to_all_vel,
-                        xcol='dX', ycol='dY', zcol='dZ', framecol='t')
+.. code:: python
 
-    mscd_fp = dV.groupby(['FP', 'delta']).agg(['mean', 'std', 'count'])
+    >>> from bayes_opt import BayesianOptimization
+    >>> # Bounded region of parameter space
+    >>> pbounds = {'logD': (-1, 1)}
+    >>> optimizer = BayesianOptimization(
+    >>>     f=compare_to_ura3,
+    >>>     pbounds=pbounds,
+    >>>     random_state=1,
+    >>> )
+    >>> optimizer.maximize(
+    >>>     init_points=5,
+    >>>     n_iter=5,
+    >>> )
+    |   iter    |  target   |   logD    |
+    -------------------------------------
+    |  1        | -0.9102   | -0.166    |
+    |  2        | -0.3911   |  0.4406   |
+    |  3        | -2.313    | -0.9998   |
+    |  4        | -1.647    | -0.3953   |
+    |  5        | -1.857    | -0.7065   |
+    |  6        | -0.2305   |  0.9042   |
+    |  7        | -0.8142   |  0.1631   |
+    |  8        | -0.8154   |  0.1631   |
+    |  9        | -0.1691   |  0.69     |
+    |  10       | -0.2272   |  1.0      |
+    =====================================
 
-    def plot_mscd(df):
-        df = df.reset_index()
-        fp = df['FP'].iloc[0]*100
-        df = df.sort_values('delta')
-        df = df[df['delta'] > 0]
-        plt.errorbar(df['delta'], df['mean'], df['std']/np.sqrt(df['count']), c=sim_cmap(sim_cnorm_continuous(fp)))
+We can plot the output of this optimization procedure:
 
-    mscd_fp.groupby(['FP']).apply(plot_mscd)
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.colorbar(sim_sm_continuous)
-    plt.xlabel('time (s)')
-    plt.ylabel('Ensemble MSCD ($\mu{}m^2$)')
+.. code:: python
 
-.. .. figure::
+    def plot_bayes_opt(optimizer):
+        x = np.linspace(-1, 1, 1000)
+        mean, sigma = optimizer._gp.predict(x.reshape(-1, 1), return_std=True)
+        plt.plot(10**x, mean)
+        plt.fill_between(10**x, mean + sigma, mean - sigma, alpha=0.1)
+        plt.scatter(10**optimizer.space.params.flatten(), optimizer.space.target, c="red", s=50, zorder=10)
+        plt.xlabel('D ($\mu{}m^2$)')
+        plt.ylabel('$-||$ Theory -- Experiment $||^2$')
+    plot_bayes_opt(optimizer)
+
+
+.. figure:: _static/homologs/SuppFig_D-fit_a.svg
+   :alt: First few steps of Bayesian Optimization for D
+
+Then we can run a few more random steps in the vicinity of the best point to get
+a really good value:
+
+.. code:: python
+
+    >>> optimizer.set_bounds(new_bounds={'logD': [np.log10(2), np.log10(4)]})
+    >>> optimizer.maximize(
+    >>>     init_points=10,
+    >>>     #     n_iter=5,
+    >>>     )
+    |   iter    |  target   |   logD    |
+    -------------------------------------
+    |  21       | -0.2238   |  0.4838   |
+    |  22       | -0.1486   |  0.537    |
+    |  23       | -0.2712   |  0.4409   |
+    |  24       | -0.2372   |  0.5756   |
+    |  25       | -0.3245   |  0.4055   |
+    |  26       | -0.2692   |  0.444    |
+    |  27       | -0.1219   |  0.5425   |
+    |  28       | -0.2419   |  0.5696   |
+    |  29       | -0.2531   |  0.5269   |
+    |  30       | -0.2056   |  0.4961   |
+    =====================================
+
+
+Finally, let's compare the MSCD we've calculated to the one we're fitting
+against:
+
+.. code:: python
+
+    D = 10**optimizer.max['params']['logD']  # ~3.4
+    theory_mscds = np.zeros_like(t_data)
+    for j in range(N_cells):
+        theory_mscds += (1/N_cells) * homolog.mscd(
+            t_data,
+            homolog.generate_poisson_homologs(mu, chr_size=burgess.chrv_size_nuc_chain_um),
+            label_loc=burgess.location_ura_nuc_chain_um,
+            chr_size=burgess.chrv_size_nuc_chain_um,
+            nuc_radius=burgess.nuc_radius_um, b=burgess.kuhn_length_nuc_chain,
+            D=D*np.random.exponential()
+        )
+    theory_mscds = theory_mscds/theory_mscds[-1]*plateau
+    plt.loglog(mscd_ura_t3['delta'], mscd_ura_t3['mean'])
+    plt.loglog(t_data, theory_mscds, 'k--')
+    plt.xlabel('t (s)')
+    plt.ylabel('MSCD ($\mu{}m^2$)')
+
+
+.. figure:: _static/homologs/SuppFig_D-fit_b.svg
+   :alt: Ensemble MSCD comparison, post-fit.
 
 
 Example "cells"
