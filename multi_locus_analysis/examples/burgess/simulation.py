@@ -115,7 +115,7 @@ def save_interior_sim(p):
             # somebody might have started at the same time as us, given them a
             # second to write out the params file
             time.sleep(1)
-            if not param_file.exist():
+            if not param_file.exists():
                 raise OSError(f"Param file not found: {param_file}.")
         shared_params = pd.read_csv(param_file, index_col=0, header=None,
                                     squeeze=True)
@@ -136,15 +136,21 @@ def save_interior_sim(p):
     # make sure to warn the user about which specific subdirectory will have
     # weird parameters if we are in fact doing something weird like that
     if not np.all(shared_params == all_params):
-        import pdb; pdb.set_trace()
         warnings.warn(f'Params of simulation in new directory ({sim_dir}) do '
                       'not match previous simulations in base directory '
                       f'({param_file}), be careful!')
     # run and save simulation
+    print(f"Starting run: {sim_dir} at time: "
+          + datetime.datetime.now().isoformat())
+    start = time.process_time()
     df = run_interior_sim(FP, time_params, rouse_params)
+    elapsed_time = time.process_time() - start
+    print(f"Completed run: {sim_dir} at time: "
+          + datetime.datetime.now().isoformat()
+          + f"\nTime elapsed: {elapsed_time}")
+
     df.to_csv(sim_dir / Path('all_beads.csv'), index=False)
     all_params.to_csv(sim_dir / Path('params.csv'), header=False)
-
 
 
 _ura3_bead_out_of_101 = 20
@@ -180,65 +186,58 @@ def get_bead_df(base_dir, bead_id=_ura3_bead_out_of_101, force_redo=False,
     df = pd.concat(dfs, ignore_index=True)
     df = df.set_index(['FP', 'sim_name', 'bead', 't'])
     df = df.sort_index()
-    df = add_paired_cols(df)
     df.to_csv(base_dir / Path(f'all_bead_{bead_id}.csv'))
     return df
 
-def select_exp_times(base_dir, bead_id=_ura3_bead_out_of_101, t=None, force_redo=False):
-    base_dir = Path(base_dir)
-    bead_file = base_dir / Path(f'all_bead_{bead_id}.csv')
-    if not bead_file.exists() or force_redo:
-        df = get_bead_df(base_dir)
-    else:
-        df = pd.read_csv(bead_file)
-    # # find the ones that look like experiment times
-    # desired_t = np.arange(0, 1501, 30)
-    # sim_t = df['t'].unique()
-    # err = np.array([np.min(ti - sim_t) for ti in desired_t])
-    # for now instead just use the biggest available step size
-    with open(base_dir / 'i_i.pkl', 'rb') as f:
-        i_i = pickle.load(f)
-    # use the spacing that's biggest while still having enough samples
-    i_i_i = np.where([len(i) > 50 for i in i_i])[0][-1]
-    if t is None:
-        # we've used same dt for all simulations so far
-        t = np.arange(0, Nt*dt, dt) # so use global value by default
-    df_exp = df[np.isin(df['t'], t[t_i[i_i[i_i_i]]])]
+def select_exp_times(df, desired_t=np.arange(0, 1501, 30), force_redo=False):
+    t_uniq = df['t'].unique()
+    min_t = np.min(t_uniq)
+    # get indices into t_uniq for time closest to each desired time
+    ind = []
+    for t in desired_t:
+        sim_time = t_uniq - min_t
+        ind.append(np.argmin(np.abs(sim_time - t)))
+    # the t's to keep
+    t = t_uniq[ind]
+    if np.any(np.abs(1 - t / np.round(t)) > 0.01):
+        raise ValueError("Cannot find simulation times sufficiently similar "
+                         "to the experiments.")
+    df_exp = df[np.isin(df['t'], t)].copy()
+    # if possible, in int index column for time is nice
+    if len(np.unique(np.diff(desired_t))) == 1:
+        dt = desired_t[1] - desired_t[0]
+        df_exp['ti'] = np.round((df_exp['t'] - min_t)/ dt).astype(int)
+        # and if we're close enough, just round the time itself as well
+        if np.abs(1 - np.round(dt) / dt) < 0.001:
+            df_exp['t'] = np.round(dt*df_exp['ti']).astype(int)
     return df_exp
 
 def add_paired_cols(df, paired_distances=None):
     if paired_distances is None:
         # paired_distances = [10, 50, 100, 250, 500, 750, 1000]
         paired_distances = [.250]
-    df['dX'] = np.sqrt(
+    df['||dX||'] = np.sqrt(
             np.power(df['X2'] - df['X1'], 2)
             + np.power(df['Y2'] - df['Y1'], 2)
             + np.power(df['Z2'] - df['Z1'], 2)
     )
     for dist in paired_distances:
-        df['pair' + str(dist)] = df['dX'] < dist
+        df['pair' + str(dist)] = df['||dX||'] < dist
     return df
 
-def get_interior_times(df, state_col='pair250', TOL=None):
+def get_interior_times(df, state_col='pair.25'):  #, TOL=None):
     waitdf = df.groupby(['FP', 'sim_name']).apply(
             fw.discrete_trajectory_to_wait_times, t_col='t', state_col=state_col)
-    def interior(df):
-        return df.reset_index().iloc[1:-1]
-    waitdf = waitdf.groupby(['FP', 'sim_name']).apply(interior)
-    # for some reason the index gets duplicated (reset_index above makes easier
-    # to delete duplicated columns, since del is easier than droplevel)
-    # waitdf.index = waitdf.index.droplevel(0)
-    del waitdf['FP']
-    del waitdf['sim_name']
-    # also because we're using floating times, we need to de-duplicate
-    # choose TOL  to be two more decimal points than dt, about
-    if TOL is None:
-        TOL = dt/1e2
-    wtimes = np.sort(waitdf['wait_time'].unique().copy())
-    diff = np.append(True, np.diff(wtimes))
-    wtimes = wtimes[diff > TOL]
-    for uniq_time in wtimes:
-        waitdf.loc[np.isclose(waitdf['wait_time'], uniq_time), 'wait_time'] = uniq_time
+    waitdf = waitdf[waitdf['wait_type'] == 'interior'].copy()
+    # # also because we're using floating times, we need to de-duplicate
+    # # choose TOL  to be two more decimal points than dt, or so
+    # if TOL is None:
+    #     TOL = dt/1e2
+    # wtimes = np.sort(waitdf['wait_time'].unique().copy())
+    # diff = np.append(True, np.diff(wtimes))
+    # wtimes = wtimes[diff > TOL]
+    # for uniq_time in wtimes:
+    #     waitdf.loc[np.isclose(waitdf['wait_time'], uniq_time), 'wait_time'] = uniq_time
     return waitdf
 
 def plot_interior_times(waitdf):
@@ -280,7 +279,9 @@ def run_homolog_param_scan(fp_list=np.linspace(0, 0.1, 11), replicates=25,
                            time_params=None):
     if base_dir is None:
         # let's us re-run script and just get more replicates
-        base_dir = './homolog-sim/no-tether-more-saves'
+        base_dir = './homolog-sim/'
+    base_dir = Path(base_dir)
+
     if material_params is None:
         material_params = {
              # ChrV
@@ -293,9 +294,9 @@ def run_homolog_param_scan(fp_list=np.linspace(0, 0.1, 11), replicates=25,
         # ~14min for Nt=1e6
         # ~3.2hrs for Nt=1e7
         # ~45hrs for Nt=1e8
-        # the ChrV polymer has t_R/recommended_dt ~ 1e8, so ~90hrs total
+        # the ChrV polymer has t_R/recommended_dt ~ 1e8, so ~48hrs total
         time_params = {
-            'Nt': 1e8,  # total number of equi-space time steps, about 2500s
+            'Nt': 1e7,  # total number of equi-space time steps, about 2500s
             'Nlin': 1e3,  # how many time steps per log-spaced group
             'overlap': 0.43,  # chosen to get times similar to experiment
         }
@@ -318,21 +319,20 @@ def run_homolog_param_scan(fp_list=np.linspace(0, 0.1, 11), replicates=25,
     num_cores = multiprocessing.cpu_count() - 1
     p = multiprocessing.Pool(num_cores)
 
-    # # now run simulations, one per core until complete
-    # script_name = os.path.basename(__file__)
-    # print(script_name + ': Running scan!')
-    # for params in p.imap_unordered(save_interior_sim, scan.params(), chunksize=1):
+    # now run simulations, one per core until complete
+    script_name = os.path.basename(__file__)
+    print(script_name + ': Running scan!')
+    for _ in p.imap_unordered(save_interior_sim, scan.params(), chunksize=1):
+        continue
+    print(script_name + ': Completed scan!')
+
+    # # the single-threaded version of the above code
+    # for params in scan.params():
+    #     save_interior_sim(params)
     #     print(script_name + ": " + datetime.datetime.now().isoformat()
     #           + ": completed run with params: " + str(params))
-    # print(script_name + ': Completed scan!')
-
-    # the single-threaded version of the above code
-    for params in scan.params():
-        break
-    return params
-        # save_interior_sim(params)
-        # print(script_name + ": " + datetime.datetime.now().isoformat()
-        #       + ": completed run with params: " + str(params))
 
 if __name__ == '__main__':
-    run_homolog_param_scan()
+    import sys
+    base_dir = sys.argv[1] if len(sys.argv) > 1 else None
+    run_homolog_param_scan(base_dir=base_dir)

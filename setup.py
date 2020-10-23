@@ -36,6 +36,6 @@ setup(name='multi_locus_analysis',
       install_requires=['bruno_util', 'matplotlib', 'numpy', 'scipy', 'pandas',
                         'seaborn', 'mpmath', 'statsmodels', 'wlcsim',
                         # for examples
-                        'skimage'
+                        'scikit-image'
                        ],
 )
