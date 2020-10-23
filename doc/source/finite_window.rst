@@ -323,7 +323,7 @@ time).
     :context:
 
     >>> plt.figure(figsize=[4,3])
-    >>> plt.hist(trajs['start_times'].values, 100)
+    >>> plt.hist(trajs['start_time'].values, 100)
     >>> plt.xlim([0, 20])
     >>> plt.xlabel('Rate of "creation of left ends"')
 

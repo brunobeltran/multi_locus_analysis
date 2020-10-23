@@ -21,12 +21,13 @@ In the following sections, we lay out the process of
    <wlcsim.rtfd.io>`_ module.
 
 In order for our plots to have the same styling as in our paper, we first set
-our matplotlib style:
+our matplotlib style, and import our data:
 
 .. plot::
     :nofigs:
     :context: close-figs
 
+    >>> from multi_locus_analysis.examples import burgess
     >>> from multi_locus_analysis.examples.burgess.styles import *
     >>> use_pnas_style()
 
@@ -143,6 +144,54 @@ linkage, ``'is_tether'`` is true if that bead is tethered to the nuclear
 envelope, and ``'FP'`` is the fraction of beads that are linkages on average, in
 this simulation run.
 
+Processing simulation output
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In order to extract the relevant bits of the simulation output (i.e. the bead
+closest to our experimental tag location, and simulation times that correspond
+to those that we measured in our movies), the `burgess.simulation` module
+provides quite a few convenience functions.
+
+First, to collate just the bead we're interested in, we can pass the relevant
+bead index to `~burgess.simulation.get_bead_df` to have it loop through all the
+``all_beads.csv`` files to make an ``'all_bead_{i}.csv'`` file containing just
+the positions at each time in the simulation of bead with index ``i``, with a
+new column identifying which simulation folder the data is from:
+
+.. code:: python
+
+    >>> # warning, this can take several hours depending on hdd speed
+    >>> df = simulation.get_bead_df(base_dir, bead_id=20)  # ura3
+    >>> # or, if you've already run the above at least once...
+    >>> # the output will have been automatically saved to this file
+    >>> df = pd.read_csv(base_dir / Path('all_bead_20.csv')
+    >>> df.head()
+        FP              sim_name  bead         t         X1  ...  right_neighbor  min_bead  max_bead
+    0  0.0  homolog-sim.tower0.0    20  0.000000  49.516035  ...             NaN         0       100
+    1  0.0  homolog-sim.tower0.0    20  0.000025  70.466497  ...             NaN         0       100
+    2  0.0  homolog-sim.tower0.0    20  0.000050  82.758519  ...             NaN         0       100
+    3  0.0  homolog-sim.tower0.0    20  0.000076  93.888488  ...             NaN         0       100
+    4  0.0  homolog-sim.tower0.0    20  0.000101  90.400716  ...             NaN         0       100
+    >>> df.columns
+    Index(['FP', 'sim_name', 'bead', 't', 'X1', 'Y1', 'Z1', 'X2', 'Y2', 'Z2',
+        'is_loop', 'is_tether', 'left_neighbor', 'right_neighbor', 'min_bead',
+        'max_bead'],
+        dtype='object')
+
+Notice that we've added some new information columns so that we don't have to go
+and refer back to the original ``all_beads.csv`` file. ``left_neighbor`` and
+``right_neighbor`` track the nearest linkage point to the left and right of the
+bead of interest, respectively. ``min_bead`` and ``max_bead`` recall the length
+of the polymer that was simulated (here, they typically are just a constant
+value of ``0`` and ``num_beads-1``, respectively, across all simulations).
+
+Finally, to get the positions of our bead of interest only at times that
+correspond to the experiment, we can call `~burgess.simulation.select_exp_times`.
+
+
+
+
+
 Parameterization of Rouse model
 -------------------------------
 
@@ -153,13 +202,10 @@ First, we import the raw data from the examples module. For a complete
 description of each column, see the documentation in
 `.multi_locus_analysis.examples.burgess`.
 
-.. plot::
-    :nofigs:
-    :context:
+.. code:: python
 
     >>> from multi_locus_analysis.examples import burgess
     >>> burgess.df[['X', 'Y', 'Z']].head()
-
     locus genotype exp.rep meiosis cell frame spot
     HET5  WT       2       t0      1    1     1     2.13328  3.19992  7.75
                                         2     1     2.53327  1.99995  7.75
@@ -229,29 +275,75 @@ cells:
 .. plot::
     :context: close-figs
 
+    >>> from wlcsim.analytical import homolog
     >>> from multi_locus_analysis.examples.burgess import plotting as mplt
     >>> cells = [homolog.generate_poisson_homologs(4, burgess.chrv_size_bp)
     >>>          for i in range(5)]
     >>> mplt.draw_cells(cells)
 
 
-.. plot::
-    :context: close-figs
+.. .. plot::
+..     :context: close-figs
 
-    >>> t = np.arange(30, 1501, 30)
-    >>> plateaus = [homolog.mscd_plateau(links) for links in cells]
-    >>> i = np.argsort(plateaus)
-    >>> for i, cell in enumerate(cells):
-    >>>     pass
-    #TODO: change everything (draw_cells) to um
+..     >>> t = np.arange(30, 1501, 30)
+..     >>> plateaus = [homolog.mscd_plateau(links) for links in cells]
+..     >>> i = np.argsort(plateaus)
+..     >>> for i, cell in enumerate(cells):
+..     >>>     pass
+..     #TODO: continue here, then fit D, then once over
 
 
 .. include:: determining-diffusivity.rst
 
-Experimental waiting times
+Waiting time distributions
 --------------------------
 
-.. include:: experimental-waiting-times.rst
+Extracting simulation wait times
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+`.burgess.simulation` has helper functions for quickly extracting
+experiment-like waiting times. We first load the single-bead simulation data we
+created above:
+
+.. code:: python
+
+    >>> df_exp = pd.read_csv('bead_20_exp.csv')
+    >>> df_exp = simulation.add_paired_cols(df_exp)
+    >>> sim_waits = df.groupby(['FP', 'sim_name']).apply(
+    >>>     fw.discrete_trajectory_to_wait_times,
+    >>>     t_col='t', state_col='pair0.25'
+    >>> )
+    >>> sim_waits.head()
+                                            start_time  end_time  wait_time  wait_state  min_waits  max_waits wait_type  window_size
+    FP  sim_name                rank_order
+    0.0 homolog-sim.tower13.100 1                  570       600         30        True          0         60  interior         1500
+        homolog-sim.tower13.115 1                   30        60         30       False          0         60  interior         1500
+                                2                   60        90         30        True          0         60  interior         1500
+                                3                   90      1440       1350       False       1320       1380  interior         1500
+                                4                 1440      1470         30        True          0         60  interior         1500
+
+Since we used the ``pair0.25`` column to compute the wait times, then
+``wait_state`` will be ``True`` if the wait time corresponds to a "residence
+time" (aka "time spent paired" or "paired time" or "time spent colocalized") and
+``False`` if it corresponds to a "search time" (aka "time spend unpaired" or
+"unpaired time" or "time spent apart").
+
+Extracting experimental wait times
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Similarly, we can extract the analogous wait times from our experimental data,
+which come with a ``'foci'`` column that tells us whether they are colocalized
+at a given time point.
+
+.. code:: python
+
+    >>> waitdf = df_flat \
+    >>>     .groupby(burgess.cell_cols + ['na_id']) \
+    >>>     .apply(mla.finite_window.discrete_trajectory_to_wait_times,
+    >>>            t_col='t', state_col='foci')
+    >>> waitdf.dropna(inplace=True) # get rid of NaN waits (buggy window sizes)
+    >>> pair_df = waitdf[(waitdf['wait_type'] == 'interior') & waitdf['wait_state']]
+    >>> unpair_df = waitdf[(waitdf['wait_type'] == 'interior') & ~waitdf['wait_state']]
 
 
 .. bibliography:: homologs.bib

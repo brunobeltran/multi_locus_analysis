@@ -172,8 +172,8 @@ These MSCDs can be simply plotted via
     >>> plt.yscale('log')
     >>> plt.xscale('log')
     >>> plt.ylim([0.01, 1])
-    >>> plt.xlabel('time lag, \delta (min)')
-    >>> plt.ylabel('MSCD, $<V_{12}^\delta(t)>$ ($\mu{}m^2/s$)')
+    >>> plt.xlabel(r'time lag, $\delta$ (min)')
+    >>> plt.ylabel(r'MSCD, $<V_{12}^\delta(t)>$ ($\mu{}m^2/s$)')
     >>> plt.legend()
 
 
