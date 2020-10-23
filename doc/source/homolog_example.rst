@@ -94,7 +94,7 @@ In short, this calls `~.simulation.run_homolog_param_scan`, which parallelizes
 the running of `~.simulation.run_interior_sim` for various values of the mean
 linkage density :math:`mu`. These calls are wrapped in the
 `~.simulation.save_interior_sim` function to ensure that each individual
-simulation is saved to its own sub-directory (making this parallelization
+simulation is saved to its own sub-directory (making the parallelization
 thread-safe, and even multi-node safe). The output of this command will be a
 directory structure that looks like:
 
@@ -102,21 +102,29 @@ directory structure that looks like:
 
     >>> tree homolog-sim | head
     homolog-sim
+    ├── params
+    │   └── shared.csv
     ├── homolog-sim.tower13.1
     │   ├── all_beads.csv
-    │   └── params.pkl
+    │   └── params.csv
     ├── homolog-sim.tower13.10
     │   ├── all_beads.csv
-    │   └── params.pkl
+    │   └── params.csv
     .
     .
     .
 
 where each folder is named ``"{base_name}/{base_name}.{hostname}.{i}"``, and the
-code guarantees a unique folder name ``{base_name}.{hostname}.{i}`` per
-simulation. The ``params.pkl`` file holds the parameters that were passed to
-`wlcsim.bd.homolog.rouse`. Each ``all_beads.csv`` file contains a Pandas
-dataframe, a representative example might look like:
+code guarantees a unique folder name ``"{base_name}.{hostname}.{i}"`` per
+simulation. The ``params.csv`` file holds the parameters that were passed to
+`wlcsim.bd.homolog.rouse`, and the ``shared.csv`` file tabulates those
+parameters that will be the same for all the replicates. You can rerun the
+simulation script at any time to generate more replicates in the same
+``"{base_name}"`` folder, and it will check ``shared.csv`` to ensure that you
+are haven't changed any parameters between runs.
+
+Each ``all_beads.csv`` file contains a Pandas dataframe, a representative
+example might look like:
 
 .. code:: python
 
