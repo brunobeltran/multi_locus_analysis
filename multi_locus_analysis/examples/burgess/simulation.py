@@ -21,33 +21,44 @@ from wlcsim.bd import homolog
 from . import ura_locus_frac
 from ... import finite_window as fw
 
+
+def get_sim_t(Nt, Nlin, overlap, N, L, b, D, preequilibrate=True):
+    dt = rouse.recommended_dt(N, L, b, D)
+    # terminal relaxation time, i.e. how long to diffuse before equilibrated
+    # the factor of two compared to a linear chain accounts for the two
+    # polymers being linked
+    if preequilibrate:
+        t_R = rouse.terminal_relaxation(N, 2*L, b, D)
+    else:
+        t_R = 0
+    t = np.arange(0, t_R + Nt*dt, dt)
+    min_save_i = np.where(t >= t_R)[0][0]
+    # for saved values of time_params, this contains ~30,60,90,etc
+    t_i, i_i = bnp.loglinsample(Nt, Nlin, overlap)
+    t_i += min_save_i
+    t_save = t[t_i]
+    return t, t_save, t_i, i_i
+
+
 def run_interior_sim(FP, time_params, rouse_params):
     """for various different "connectivities" (fraction of beads "homolog
     paired") run 100 or so BD simulations each to get statistics on looping
     probabilities that are comparable to the experiment."""
-    time_params = time_params.copy()
-    Nt = time_params.pop('Nt')
     rouse_params = rouse_params.copy()
     rouse_params['FP'] = FP
 
-
-    # FP = 0.1 # fraction loci homolog paired
-    tether_list = np.array([]).astype(int) # no tethered loci
+    tether_list = np.array([]).astype(int)  # no tethered loci for now
 
     # now define the time grid on which to run the BD, and specify which of those times to save
     dt_params = {k: rouse_params[k] for k in ['N', 'L', 'b', 'D']}
-    dt = rouse.recommended_dt(**dt_params)
-    t = np.arange(0, Nt*dt, dt)  # take Nt time steps
-    t_i, i_i = bnp.loglinsample(Nt, **time_params)  # contains ~30,60,90,etc
-    # i30 = np.argmin(np.abs(t - 30)) # index at "30s"
-    # t_save = t[0::i30] # save every 30s
-    t_save = t[t_i]
+    t, t_save, _, _ = get_sim_t(**time_params, **dt_params)
 
     # now run the simulation
     tether_list, loop_list, X = homolog.rouse(
         t=t, t_save=t_save, tether_list=tether_list, **rouse_params
     )
 
+    N = rouse_params.pop('N')
     X1, X2 = homolog.split_homologs_X(X, N, loop_list)
 
     # make bead #, t, and binary "looped"/"tethered" arrays to same size as X1/X2
@@ -91,13 +102,13 @@ def save_interior_sim(p):
     # that we're in...to prevent a bunch of simulations with hella different
     # parameters.
     params_dir = Path(base_dir) / Path('params')
-    param_file = params_dir / Path('shared_params.csv')
+    param_file = params_dir / Path('shared.csv')
     # FP is saved in the output dataframe of run_interior_sim, not here
     all_params = pd.Series(dict(time_params, **rouse_params))
     try:
         os.makedirs(params_dir, mode=0o755)
         # if the above doesn't raise, nobody's established the parameters yet
-        all_params.to_csv(param_file)
+        all_params.to_csv(param_file, header=False)
         shared_params = all_params.copy()
     except OSError:
         if not param_file.exists():
@@ -106,7 +117,8 @@ def save_interior_sim(p):
             time.sleep(1)
             if not param_file.exist():
                 raise OSError(f"Param file not found: {param_file}.")
-        shared_params = pd.read_csv(param_file, index_col=0)
+        shared_params = pd.read_csv(param_file, index_col=0, header=None,
+                                    squeeze=True)
 
     hostname = socket.gethostname()
     # now call dibs on a unique output directory
@@ -124,12 +136,14 @@ def save_interior_sim(p):
     # make sure to warn the user about which specific subdirectory will have
     # weird parameters if we are in fact doing something weird like that
     if not np.all(shared_params == all_params):
-        warnings.warn(f'Params of simulation in directory ({base_dir}) do not '
-                      'match previous simulations in this directory, be '
-                      'careful!')
+        import pdb; pdb.set_trace()
+        warnings.warn(f'Params of simulation in new directory ({sim_dir}) do '
+                      'not match previous simulations in base directory '
+                      f'({param_file}), be careful!')
     # run and save simulation
     df = run_interior_sim(FP, time_params, rouse_params)
     df.to_csv(sim_dir / Path('all_beads.csv'), index=False)
+    all_params.to_csv(sim_dir / Path('params.csv'), header=False)
 
 
 
@@ -170,7 +184,7 @@ def get_bead_df(base_dir, bead_id=_ura3_bead_out_of_101, force_redo=False,
     df.to_csv(base_dir / Path(f'all_bead_{bead_id}.csv'))
     return df
 
-def select_exp_times(base_dir, bead_id=_ura3_bead_out_of_101 , t=None, force_redo=False):
+def select_exp_times(base_dir, bead_id=_ura3_bead_out_of_101, t=None, force_redo=False):
     base_dir = Path(base_dir)
     bead_file = base_dir / Path(f'all_bead_{bead_id}.csv')
     if not bead_file.exists() or force_redo:
@@ -195,7 +209,7 @@ def select_exp_times(base_dir, bead_id=_ura3_bead_out_of_101 , t=None, force_red
 def add_paired_cols(df, paired_distances=None):
     if paired_distances is None:
         # paired_distances = [10, 50, 100, 250, 500, 750, 1000]
-        paired_distances = [250]
+        paired_distances = [.250]
     df['dX'] = np.sqrt(
             np.power(df['X2'] - df['X1'], 2)
             + np.power(df['Y2'] - df['Y1'], 2)
@@ -278,7 +292,8 @@ def run_homolog_param_scan(fp_list=np.linspace(0, 0.1, 11), replicates=25,
         # ~1min to run for Nt=1e5,
         # ~14min for Nt=1e6
         # ~3.2hrs for Nt=1e7
-        # TBD for Nt=1e8
+        # ~45hrs for Nt=1e8
+        # the ChrV polymer has t_R/recommended_dt ~ 1e8, so ~90hrs total
         time_params = {
             'Nt': 1e8,  # total number of equi-space time steps, about 2500s
             'Nlin': 1e3,  # how many time steps per log-spaced group
