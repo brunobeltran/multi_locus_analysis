@@ -227,6 +227,7 @@ Justification for the Kuhn length
 
 TODO: copy in justifications for both 15nm and 50nm.
 
+
 Determining nuclear radius
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -250,7 +251,7 @@ precisely, to set a lower bound on this radius).
     :context: close-figs
 
     >>> from multi_locus_analysis.stats import convex_hull
-    >>> fig, ax = plt.subplots(constrained_layout=True, figsize=(col_width, golden_ratio*col_width))
+    >>> fig, ax = plt.subplots(constrained_layout=True)
     >>> chull_volume = burgess.df \
     >>>     .groupby(burgess.cell_cols) \
     >>>     .apply(convex_hull, xcol='X', ycol='Y', zcol='Z', volume=True)
@@ -265,7 +266,238 @@ precisely, to set a lower bound on this radius).
 Phenomenological MSCD Correction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Unlike in our analytical theory, the
+Unlike in our analytical theory, in order to compute the MSCDs from our
+experimental data, we must exclude all time points for which the distance
+between the loci is less than 250nm, since below this resolution threshold we
+cannot be certain how close together the two loci are.
+
+While this skews our MSCDs to be larger than they actually are, we can show
+using our simulation data that the bias is simply a constant multiplicative
+factor, which we can then simply account for.
+
+First, we define some simple code for plotting the mscds of our simulation
+data:
+
+.. code:: python
+
+    import pandas as pd
+    import multi_locus_analysis as mla
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from multi_locus_analysis.examples.burgess.styles import (sim_cmap,
+        sim_cnorm_continuous)
+    def plot_mscd(df):
+        df = df.reset_index()
+        fp = df['FP'].iloc[0]*100
+        df = df.sort_values('delta')
+        df = df[df['delta'] > 0]
+        plt.errorbar(df['delta'], df['mean'], df['std']/np.sqrt(df['count']), c=sim_cmap(sim_cnorm_continuous(fp)))
+
+Now we load in the simulation data:
+
+.. code:: python
+
+    df_exp = pd.read_csv('_static/homologs/bead_20_exp.csv'))
+
+We compute the "real" MSCDs first:
+
+.. code:: python
+
+    all_dvel = df.groupby(['FP', 'sim_name']).apply(mla.stats.pos_to_all_vel,
+        xcol='dX', ycol='dY', zcol='dZ', framecol='t')
+    dV = (all_dvel['vx']**2 + all_dvel['vy']**2 + all_dvel['vz']**2)
+    mscd_fp = dV.groupby(['FP', 'delta']).agg(['mean', 'std', 'count'])
+
+they look like:
+
+.. code:: python
+
+    mscd_fp.groupby(['FP']).apply(plot_mscd)
+    plt.yscale('log')
+    plt.xscale('log')
+    cb = plt.colorbar(sim_sm_continuous)
+    cb.set_label('Linkages per chromosome')
+    plt.xlabel('time (s)')
+    plt.ylabel('Ensemble MSCD ($\mu{}m^2$)')
+    plt.savefig(_static_dir / 'SuppFig_MSCD-correction_a.svg')
+
+.. figure:: _static/homologs/SuppFig_MSCD-correction_a.svg
+    :alt: MSCD of our simulations, one line per value of :math:`mu`.
+
+Then we can compute the MSCDs again, giving the simulation the same treatment
+that our experimental data gets:
+
+.. code:: python
+
+    all_dvel_skipna = df[~df['pair250']] \
+        .groupby(['FP', 'sim_name']) \
+        .apply(mla.stats.pos_to_all_vel,
+               xcol='dX', ycol='dY', zcol='dZ', framecol='t')
+    dV_skipna = all_dvel_skipna['vx']**2 + all_dvel_skipna['vy']**2 \
+        + all_dvel_skipna['vz']**2
+    mscd_fp_skip_na = dV_skipna.groupby(['FP', 'delta']) \
+                               .agg(['mean', 'std', 'count'])
+
+.. figure:: _static/homologs/SuppFig_MSCD-correction_b.svg
+    :alt: biased MSCD of our simulations, one line per value of :math:`mu`.
+
+they do in fact look like rescaled versions of each other, and we can check
+this directly by dividing one by the other:
+
+.. code:: python
+
+    for fp, data in mscd_fp_skip_na.groupby('FP'):
+        (data['mean'] / mscd_fp.loc[fp]['mean']).plot(
+            c=sim_cmap(sim_cnorm_continuous(100*fp)))
+        cb = plt.colorbar(sim_sm_continuous)
+        cb.set_label('Linkages per chromosome')
+        plt.yscale('log')
+        plt.xscale('log')
+        plt.xlabel('time (s)')
+        plt.ylabel('Ratio')
+
+.. figure:: _static/homologs/SuppFig_MSCD-correction_c.svg
+    :alt: ratio of biased to unbiased MSCD curves, one per :math:`mu`.
+
+The multiplicative factor can be found by averaging these curves. Here, we only
+average the parts of the curve that are least likely to suffer from other
+systematic bias due to the fact that we extract the MSCDs via a procedure that
+includes time-averaging. It turns out that the multiplicative factor follows a
+very nice power law:
+
+.. code:: python
+
+    >>> import scipy
+    >>> def get_plateau(df):
+    >>>     df = df.reset_index()
+    >>>     return df[(df['delta'] > 250) & (df['delta'] < 650)]['mean'].mean()
+    >>> plateau_actual = mscd_fp.groupby(['FP']).apply(get_plateau)
+    >>> plateau_skipna = mscd_fp_skip_na.groupby(['FP']).apply(get_plateau)
+    >>> slope, intercept, rvalue, pvalue, stderr = \
+    >>>     scipy.stats.linregress(np.log10(plateau_actual), np.log10(plateau_skipna))
+    >>> print(f'slope={slope}, intercept={intercept}')
+    slope=0.6871366517395089, intercept=2.1876785072363103
+
+We can visualize this power law as follows:
+
+.. code:: python
+
+    plt.scatter(plateau_actual, plateau_skipna)
+    plt.yscale('log')
+    plt.xscale('log')
+    xlim = plt.xlim()
+    plt.plot([0, 10e6], [0, 10e6], 'k.-')
+    plt.plot(xlim, 10**(slope*np.array(np.log10(xlim)) + intercept), 'g.-')
+    plt.xlim(xlim)
+    plt.xlabel('Actual Plateau (nm$^2$)')
+    plt.ylabel('Plateau from Unpaired Loci (nm$^2$)')
+
+.. figure:: _static/homologs/SuppFig_MSCD-correction_d.svg
+    :alt: power law between actual plateau level and correction factor
+
+    The green line is the power law fit. The black line is :math:`y=x`.
+
+
+Determining linkage density
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+With this quantitative correction factor in hand, and knowledge of the nuclear
+radius (the other source of confinement), we can now use the confinement levels
+of the ensemble average MSCD curves to extract the mean linkage density along
+the chromosome for each of our time points.
+
+First, we must extract the plateau levels (printed in :math:`\mu{}m^2`):
+
+.. code:: python
+
+    >>> locus = 'URA3'
+    >>> strains_for_plateau = [(locus, 'WT'), (locus, 'SP')]
+    >>> msds_file = burgess.burgess_dir / Path('msds_dvel_unp.csv')
+    >>> if not msds_file.exists():
+    >>>     burgess.msds.precompute_msds()
+    >>> mscds = pd.read_csv(msds_file) \
+    >>>         .set_index(['locus', 'genotype', 'meiosis'])
+    >>> def average_end_times(df):
+    >>>     return np.mean(df.loc[df['delta'] > 800, 'mean'])
+    >>> plateaus = pd.DataFrame(index=[f't{i}' for i in range(7)])
+    >>> for strain in strains_for_plateau:
+    >>>     d = mscds.loc[strain]
+    >>>     averages = d.groupby('meiosis').apply(average_end_times)
+    >>>     plateaus[strain] = averages.loc['t0':'t6']
+    >>> plateaus.head()
+        (URA3, WT)  (URA3, SP)
+    t0    0.906255    0.866363
+    t1    1.106019    1.020559
+    t2    1.276101    1.175226
+    t3    1.266145    1.303145
+    t4    1.173193    1.315637
+
+we then need to generate the mapping between the average linkage density
+:math:`\mu` and the expected MSCD plateau value from our analytical theory
+
+.. code:: python
+
+    mus = np.linspace(0, 10, 100)
+    theory_plateaus = np.zeros_like(mus)
+    N_cells = 10000
+    for i, mu in enumerate(mus):
+        for j in range(N_cells):
+            theory_plateaus[i] += (1/N_cells) * homolog.mscd_plateau(
+                homolog.generate_poisson_homologs(mu, chr_size=burgess.chrv_size_effective_um),
+                label_loc=burgess.location_ura_effective_um,
+                chr_size=burgess.chrv_size_effective_um,
+                nuc_radius=burgess.nuc_radius_um, b=burgess.kuhn_length_nuc_chain
+            )
+
+Then, we can apply our phenomenological correction for the experimental MSCD
+computation:
+
+.. code:: python
+
+    slope = 0.686798088540447
+    intercept = 2.189713913621381
+    theory_plateaus_nm = theory_plateaus * 1000**2
+    plateau_observed_nm = 10**(slope*np.log10(theory_plateaus_nm) + intercept)
+    plateau_observed = plateau_observed_nm / 1000**2
+    plt.scatter(mus, plateau_observed)
+    plt.xlabel('Average linkages per chromosome')
+    plt.ylabel('Observed MSCD plateau ($\mu{}m^2$)')
+
+.. figure:: _static/homologs/SuppFig_mean-linkages_a.svg
+   :alt: Linkages to observed plateau map
+
+Allowing us to extract estimates for the number of linkages per chromosome:
+
+.. code:: python
+
+    >>> fit_mus = plateaus.applymap(lambda p:
+    >>>     np.interp(p, plateau_observed[::-1], mus[::-1]))
+        ('URA3', 'WT')  ('URA3', 'SP')
+    t0        2.568580        2.661584
+    t1        2.023971        2.225883
+    t2        1.712329        1.881599
+    t3        1.727523        1.669743
+    t4        1.885805        1.650072
+    t5        2.476930        1.962244
+    t6             NaN        1.705559
+
+
+Repeating the same exercise with the alternative set of parameters that
+correspond to bare DNA instead of a nucleosome chain results in a separate set
+of estimates:
+
+.. code:: python
+
+    >>> wlc_fit_mus
+        ('URA3', 'WT')  ('URA3', 'SP')
+    t0       42.518713       45.592926
+    t1       31.632718       35.980398
+    t2       25.149340       28.886685
+    t3       26.037688       24.398155
+    t4       28.973497       23.958810
+    t5       40.102647       30.355243
+    t6             NaN       25.068711
+
 
 Determining diffusivity
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -326,13 +558,7 @@ we can compute the simulation MSCD curves as follows:
     plt.xlabel('time (s)')
     plt.ylabel('Ensemble MSCD ($\mu{}m^2$)')
 
-which will produce a plot like the following:
-
-(TODO, copy in)
-
 .. .. figure::
-
-but to see the effects of extra , we need to redo...
 
 
 Example "cells"
@@ -352,16 +578,6 @@ cells:
     >>>          for i in range(5)]
     >>> mplt.draw_cells(cells)
 
-
-.. .. plot::
-..     :context: close-figs
-
-..     >>> t = np.arange(30, 1501, 30)
-..     >>> plateaus = [homolog.mscd_plateau(links) for links in cells]
-..     >>> i = np.argsort(plateaus)
-..     >>> for i, cell in enumerate(cells):
-..     >>>     pass
-..     #TODO: continue here, then fit D, then once over
 
 Waiting time distributions
 --------------------------

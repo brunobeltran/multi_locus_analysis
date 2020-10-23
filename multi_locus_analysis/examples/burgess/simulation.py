@@ -216,10 +216,12 @@ def add_paired_cols(df, paired_distances=None):
     if paired_distances is None:
         # paired_distances = [10, 50, 100, 250, 500, 750, 1000]
         paired_distances = [.250]
+    for x in ['X', 'Y', 'Z']:
+        df['d' + x] = df[x + '2'] - df[x + '1']
     df['||dX||'] = np.sqrt(
-            np.power(df['X2'] - df['X1'], 2)
-            + np.power(df['Y2'] - df['Y1'], 2)
-            + np.power(df['Z2'] - df['Z1'], 2)
+            np.power(df['dX'], 2)
+            + np.power(df['dY'], 2)
+            + np.power(df['dZ'], 2)
     )
     for dist in paired_distances:
         df['pair' + str(dist)] = df['||dX||'] < dist

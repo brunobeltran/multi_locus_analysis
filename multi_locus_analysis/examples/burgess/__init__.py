@@ -80,14 +80,30 @@ location_ura_bp = np.mean([116167, 116970])
 location_cen5_bp = np.mean([151987, 152104])
 ura_locus_frac = location_ura_bp/chrv_size_bp
 chrv_centromere_frac = location_cen5_bp/chrv_size_bp
+
+# bare DNA wlc parameters
+kuhn_length_wlc = 0.05  # 50nm
+chrv_size_wlc_um = 0.34 * chrv_size_bp / 1000  # um
+chrv_size_wlc_kuhn = chrv_size_wlc_um / kuhn_length_wlc
+location_ura_wlc_um = location_ura_bp*(
+    chrv_size_wlc_um / chrv_size_bp
+)
+location_cen5_wlc_um = location_cen5_bp*(
+    chrv_size_wlc_um / chrv_size_bp
+)
+
 # effective nucleosome chain parameters
 kuhn_length_nuc_chain = 0.015  # um
-chrv_size_kuhn = 1165  # see discussion in "example-homolog" docs
-chrv_size_effective_um = chrv_size_kuhn*kuhn_length_nuc_chain
-location_ura_effective_um = location_ura_bp*(chrv_size_effective_um
-                                             / chrv_size_bp)
-location_cen5_effective_um = location_cen5_bp*(chrv_size_effective_um
-                                               / chrv_size_bp)
+# in number of kuhn lengths. see discussion in "example-homolog" docs
+chrv_size_nuc_chain_kuhn = 1165
+chrv_size_nuc_chain_um = kuhn_length_nuc_chain*chrv_size_nuc_chain_kuhn
+location_ura_nuc_chain_um = location_ura_bp*(
+    chrv_size_nuc_chain_um / chrv_size_bp
+)
+location_cen5_nuc_chain_um = location_cen5_bp*(
+    chrv_size_nuc_chain_um / chrv_size_bp
+)
+
 # derived parameters
 nuc_radius_um = 1.3  # Average of het5 msd convex hull distribution
 sim_nuc_radius_um = 1
@@ -95,16 +111,14 @@ old_sim_D = 20  # um^2/s, old value used for existing sims, 10/2020
 sim_D_bparams = 2  # see discussion in "determining-diffusivity" docs
 sim_D_aparams = 20 # see discussion in "determining-diffusivity" docs
 
+# finally, the actual data
 burgess_dir = Path(__file__).resolve().parent
-
 condition_cols = ['locus', 'genotype', 'meiosis']
 movie_cols = ['locus', 'genotype', 'exp.rep', 'meiosis']
 cell_cols = movie_cols + ['cell']
-
 frame_cols = cell_cols + ['frame']
 traj_cols = cell_cols + ['spot']
 spot_cols = cell_cols + ['frame', 'spot']
-
 df_xyz = pd.read_csv(burgess_dir / Path('xyz_conf_okaycells9exp.csv'))
 
 

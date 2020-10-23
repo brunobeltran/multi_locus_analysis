@@ -21,20 +21,31 @@ page_width = 8.5  # 8.5 x 11in format
 golden_ratio = (1 + np.sqrt(5))/2
 
 
-def use_pnas_style():
+def use_pnas_style(rcParams=None):
+    if rcParams is None:
+        rcParams = mpl.rcParams
     # PNAS declares 9pt default text but uses ~8pt, with ~6pt captions
-    mpl.rcParams['font.size'] = 8.0
+    rcParams['font.size'] = 8.0
     # however, Sean kept requiresting larger text, so now we're up to
     # 9.6pt font (large), and ~11.52pt titles (x-large)
-    mpl.rcParams['xtick.labelsize'] = 'large'  # default : medium
-    mpl.rcParams['ytick.labelsize'] = 'large'  #
-    mpl.rcParams['axes.titlesize'] = 'x-large'  # default : large,
-    mpl.rcParams['axes.labelsize'] = 'large'  # default : medium
-    mpl.rcParams['text.usetex'] = True
-    mpl.rcParams['font.serif'] = 'Fira Sans'
-    mpl.rcParams['font.family'] = 'sans-serif'
+    rcParams['xtick.labelsize'] = 'medium'  # default : medium
+    rcParams['ytick.labelsize'] = 'medium'  #
+    rcParams['axes.titlesize'] = 'large'  # default : large,
+    rcParams['axes.labelsize'] = 'medium'  # default : medium
+    rcParams['text.usetex'] = False
+    rcParams['font.serif'] = 'Fira Sans'
+    rcParams['font.family'] = 'sans-serif'
+    rcParams['figure.figsize'] = (col_width, col_width / golden_ratio)
+    return rcParams
 
 # Generate color maps, ScalarMappables, tickers, locators, etc.
+# Pick three colors (a blue, a green and a red) to stand for "early", "middle",
+# and "late". Then in L*a*b space, use a sawtooth in L to emphasize (in dark)
+# the three colors, while moving in a straight line between them.
+
+# We should probably be using "colorspacious" and "viscm" instead, which is how
+# they designed viridis, and uses a more up-to-date color space CAM02-UCS
+# (which is a euclideanization of CIECAM02).
 
 vmax_long = 5.7
 vmax_light = 5.0
