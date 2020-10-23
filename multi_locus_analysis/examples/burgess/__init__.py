@@ -8,7 +8,10 @@ Data interface
 ^^^^^^^^^^^^^^
 
 ``df``
-    The data.
+    The data, one row per (locus, frame).
+
+``df_flat``
+    The data, one row per frame, both loci.
 
 ``cell_cols``
     The columsn to groupby to get each unique "cell" (i.e. each pair of
@@ -88,8 +91,9 @@ location_cen5_effective_um = location_cen5_bp*(chrv_size_effective_um
 # derived parameters
 nuc_radius_um = 1.3  # Average of het5 msd convex hull distribution
 sim_nuc_radius_um = 1
-sim_D = 20  # um^2/s, old value used for existing sims, 10/2020
-D = 0.02  # see discussion in "determining-diffusivity" docs
+old_sim_D = 20  # um^2/s, old value used for existing sims, 10/2020
+sim_D_bparams = 2  # see discussion in "determining-diffusivity" docs
+sim_D_aparams = 20 # see discussion in "determining-diffusivity" docs
 
 burgess_dir = Path(__file__).resolve().parent
 

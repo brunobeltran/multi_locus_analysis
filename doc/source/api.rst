@@ -73,6 +73,9 @@ Example data
 
     examples
     examples.burgess
+    examples.burgess.msds
+    examples.burgess.plotting
+    examples.burgess.simulation
 
 Utilities
 ---------

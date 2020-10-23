@@ -111,10 +111,10 @@ def msd(df, mscd=True, include_z=True, traj_group=cell_cols,
     Returns
     -------
     msds : pd.DataFrame
-        dataframe with 'delta' and :param:`groups` as the index and ['mean',
+        dataframe with 'delta' and *groups* as the index and ['mean',
         'std', 'count'] as the columns, corresponding to the time-and-ensemble
         averaged quantities for the MSD as a function of 'delta' for each group
-        in :param:`groups`.
+        in *groups*.
 
     """
     if traj_group is None:
@@ -148,30 +148,30 @@ def msd(df, mscd=True, include_z=True, traj_group=cell_cols,
 
 
 preset_msd_args_ = """{
-        'dvel': {'df': burgess.df_flat, 'mscd': True},
-        'dvel_unp': {
-            'df': burgess.df_flat[burgess.df_flat['foci'] == 'unp'],
-            'mscd': True
-        },
-        'dvel_unp_by_wait': {
-            'df': burgess.df_flat[burgess.df_flat['foci'] == 'unp'],
-            'mscd': True,
-            'traj_group': cell_cols + ['wait_id']
-        },
-        'dvel_unp_by_wait_na': {
-            'df': burgess.df_flat[burgess.df_flat['foci'] == 'unp'],
-            'mscd': True, 'traj_group': cell_cols + ['wait_id', 'na_id']
-        },
-        'vel': {'df': burgess.df.xs(1, level='spot'), 'mscd': False},
-        'vel_double_counted': {'df': burgess.df, 'mscd': False},
-        'vel_spot2': {'df': burgess.df.xs(2, level='spot'), 'mscd': False},
-        'vel_unp_by_wait': {'df': burgess.df[burgess.df['foci'] == 'unp'],
-                            'traj_group': cell_cols + ['spot', 'wait_id'],
-                            'mscd': False},
-        'vel_pair_by_wait': {'df': burgess.df[burgess.df['foci'] == 'pair'],
-                            'traj_group': cell_cols + ['spot', 'wait_id'],
-                            'mscd': False},
-    }
+            'dvel': {'df': burgess.df_flat, 'mscd': True},
+            'dvel_unp': {
+                'df': burgess.df_flat[burgess.df_flat['foci'] == 'unp'],
+                'mscd': True
+            },
+            'dvel_unp_by_wait': {
+                'df': burgess.df_flat[burgess.df_flat['foci'] == 'unp'],
+                'mscd': True,
+                'traj_group': cell_cols + ['wait_id']
+            },
+            'dvel_unp_by_wait_na': {
+                'df': burgess.df_flat[burgess.df_flat['foci'] == 'unp'],
+                'mscd': True, 'traj_group': cell_cols + ['wait_id', 'na_id']
+            },
+            'vel': {'df': burgess.df.xs(1, level='spot'), 'mscd': False},
+            'vel_double_counted': {'df': burgess.df, 'mscd': False},
+            'vel_spot2': {'df': burgess.df.xs(2, level='spot'), 'mscd': False},
+            'vel_unp_by_wait': {'df': burgess.df[burgess.df['foci'] == 'unp'],
+                                'traj_group': cell_cols + ['spot', 'wait_id'],
+                                'mscd': False},
+            'vel_pair_by_wait': {'df': burgess.df[burgess.df['foci'] == 'pair'],
+                                'traj_group': cell_cols + ['spot', 'wait_id'],
+                                'mscd': False},
+        }
 """
 preset_msd_args = eval(preset_msd_args_)
 
@@ -187,12 +187,14 @@ def precompute_msds(prefix=burgess_dir, force_redo=False, **kwargs):
     force_redo : bool
         Whether or not to redo the calculation if a file with the requested
         name already exists.
-    **kwargs : Dict[str, object]
+    **kwargs
         Forwarded to msds.msd
 
     Notes
     -----
-    The default is to compute msds using the following 'name': arguments::
+    The default is to compute msds using the following 'name': argument pairs:
+
+    .. code::
 
     """
     for name, msd_args in preset_msd_args.items():
@@ -203,4 +205,4 @@ def precompute_msds(prefix=burgess_dir, force_redo=False, **kwargs):
             msds.to_csv(msd_file)
 
 
-precompute_msds.__doc__ += preset_msd_args_
+precompute_msds.__doc__ += '    ' + preset_msd_args_
