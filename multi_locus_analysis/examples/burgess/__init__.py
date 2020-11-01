@@ -75,16 +75,28 @@ import numpy as np
 from pathlib import Path
 
 # known biological constants, in bp
+bp_per_nuc = 147  # 146 or 147, depending on the crystal
+# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2493396/
+cerevisiae_nrl = 165  # nucleosome repeat length in bp
+cerevisiae_linker = cerevisiae_nrl - bp_per_nuc
+chrii_size_bp = 813184
 chrv_size_bp = 576874
+um_per_bp = 0.00034
+
+# measurement parameters
+t_data = np.arange(0, 1501, 30).astype(float)
+
+location_lys_bp = np.mean([469748, 473926])
+location_cen2_bp = np.mean([238207, 238323])
+lys_locus_frac = location_lys_bp / chrii_size_bp
+chrii_centromere_frac = location_cen2_bp / chrii_size_bp
+
 location_ura_bp = np.mean([116167, 116970])
 location_cen5_bp = np.mean([151987, 152104])
 ura_locus_frac = location_ura_bp/chrv_size_bp
 chrv_centromere_frac = location_cen5_bp/chrv_size_bp
 
-# measurement parameters
-t_data = np.arange(0, 1501, 30).astype(float)
-
-# bare DNA wlc parameters
+# bare DNA wlc parameters (found to not work well)
 kuhn_length_wlc = 0.05  # 50nm
 chrv_size_wlc_um = 0.34 * chrv_size_bp / 1000  # um
 chrv_size_wlc_kuhn = chrv_size_wlc_um / kuhn_length_wlc
@@ -95,20 +107,39 @@ location_cen5_wlc_um = location_cen5_bp*(
     chrv_size_wlc_um / chrv_size_bp
 )
 
-# effective nucleosome chain parameters
-kuhn_length_nuc_chain = 0.015  # um
-# in number of kuhn lengths. see discussion in "example-homolog" docs
-chrv_size_nuc_chain_kuhn = 1165
-chrv_size_nuc_chain_um = kuhn_length_nuc_chain*chrv_size_nuc_chain_kuhn
+# effective nucleosome chain parameters (found to work much better)
+if cerevisiae_linker == 18:
+    kuhn_length_nuc_chain = 0.01776  # um, from Beltran et al, PRL 2019
+chrv_num_nuc = chrv_size_bp / cerevisiae_nrl
+chrv_total_linker = chrv_num_nuc * cerevisiae_linker
+chrv_linker_um = chrv_total_linker * um_per_bp
+chrv_size_nuc_chain_kuhn = chrv_linker_um / kuhn_length_nuc_chain
 location_ura_nuc_chain_um = location_ura_bp*(
-    chrv_size_nuc_chain_um / chrv_size_bp
+    chrv_linker_um / chrv_size_bp
 )
 location_cen5_nuc_chain_um = location_cen5_bp*(
-    chrv_size_nuc_chain_um / chrv_size_bp
+    chrv_linker_um / chrv_size_bp
 )
 
+chrii_num_nuc = chrii_size_bp / cerevisiae_nrl
+chrii_total_linker = chrii_num_nuc * cerevisiae_linker
+chrii_linker_um = chrii_total_linker * um_per_bp
+chrii_size_nuc_chain_kuhn = chrii_linker_um / kuhn_length_nuc_chain
+location_lys_nuc_chain_um = location_lys_bp*(
+    chrii_linker_um / chrii_size_bp
+)
+location_cen2_nuc_chain_um = location_cen2_bp*(
+    chrii_linker_um / chrii_size_bp
+)
+
+# backcompat
+chrii_size_nuc_chain_um = chrii_linker_um
+chrv_size_nuc_chain_um = chrv_linker_um
+
 # derived parameters
-nuc_radius_um = 1.3  # Average of het5 msd convex hull distribution
+# Average of het5 msd convex hull distribution. Also matches well the
+# higher of the two wt, ura3, t3 "modes" of the mscd plateau distribution
+nuc_radius_um = 1.3
 sim_nuc_radius_um = 1
 old_sim_D = 20  # um^2/s, old value used for existing sims, 10/2020
 sim_D = 3.4872926794253383  # see discussion in "determining-diffusivity" docs
@@ -148,10 +179,12 @@ def add_foci(df):
 
 
 def pixels_to_units(df):
-    """Keep track of necessary conversions into real units. For now all
-    data was collected with Z-stacks where pixels in the X,Y plane have a
-    "real" width of 0.13333 um/pixels, whereal the z-stacks are spaced at
-    0.25um intervals. The df_xyz file has units of "pixels/10"
+    """
+    Keep track of necessary conversions into real units.
+
+    For now all data was collected with Z-stacks where pixels in the X,Y plane
+    have a "real" width of 0.13333 um/pixels, whereal the z-stacks are spaced
+    at 0.25um intervals. The df_xyz file has units of "pixels/10"
 
     In the future, Trent will want to add code here to make sure that other
     movies with different pixel sizes can be compared directly to old
@@ -169,8 +202,12 @@ def pixels_to_units(df):
 
 
 def replace_na(df):
-    """Assuming we have add_foci'd, we don't *need* to artificially set the
-    second trajectory's values to NaN, so undo that here."""
+    """
+    Undo Trent's decision to make pair times have one locus as X=NaN.
+
+    Assuming we have add_foci'd, we don't *need* to artificially set the
+    second trajectory's values to NaN, so undo that here.
+    """
     # apparently this doesn't work
     # df.loc[np.isnan(df['X2']), ['X2', 'Y2', 'Z2']]
     # so instead
@@ -180,7 +217,10 @@ def replace_na(df):
 
 
 def breakup_by_na(traj):
-    """Take a Burgess trajectory, and create a new column "na_id" that
+    """
+    Split up a trajectory each time it contains a NaN.
+
+    Takes a Burgess trajectory, and create a new column "na_id" that
     uniquely tracks continuous chunks of trajectory where there are no
     NAN's.
 
@@ -204,7 +244,10 @@ def breakup_by_na(traj):
 
 
 def add_wait_id(traj):
-    """Take a single Burguess "cell", and add a column that uniquely tracks the
+    """
+    Split a trajectory each time a colocalization event occurs.
+
+    Takes a single Burguess "cell", and add a column that uniquely tracks the
     individual stretches of time over which that cell has "pair" or "unp" loci.
 
     Assumes that wait_id is not changed by internal NaN's. If you wish to break

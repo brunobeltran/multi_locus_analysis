@@ -6,6 +6,7 @@ import bruno_util.plotting as bplt
 from bruno_util.plotting import cmap_from_list
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as PathEffects
 import numpy as np
 import pandas as pd
 
@@ -141,18 +142,37 @@ def draw_cells(cells, min_y=0.05, max_y=0.95, label_loc=location_ura_bp,
     # (1/2) times the spacing between centers of two chromosomes in each "cell"
     width_to_chr_center = width_per_cell / 5
     chr_width = 15
+    # only works with mixed backends, where 72"PX"/in is always true, otherwise
+    # you need to do something like:
+    # transAxes.inverted().transform(dpi_scale_trans.transform([1/72, 1/72])
+    pt_to_ax = ax.transAxes.inverted().transform(
+        ax.get_figure().dpi_scale_trans.transform([1/72, 1/72])
+    )
     for i, x in enumerate(cell_centers):
         for dx in [width_to_chr_center, -width_to_chr_center]:
-            ax.plot([[x + dx, x + dx], [x + dx, x + dx]],
-                    [[chr_coords(0), chr_coords(centromere_frac)],
-                     [chr_coords(centromere_frac), chr_coords(1)]],
-                    transform=ax.transAxes, linewidth=chr_width,
-                    solid_capstyle='round', color=[197/255, 151/255, 143/255])
+            cap_radius_ax = chr_width/2 * pt_to_ax[1]
+            # draw the chromosomes
+            ax.plot(
+                [[x + dx, x + dx], [x + dx, x + dx]],
+                [[chr_coords(0), chr_coords(centromere_frac) - cap_radius_ax],
+                [chr_coords(centromere_frac) + cap_radius_ax, chr_coords(1)]],
+                transform=ax.transAxes, linewidth=chr_width,
+                solid_capstyle='round', color=[50/255, 50/255, 50/255]
+            )
+            ax.plot(
+                [[x + dx, x + dx], [x + dx, x + dx]],
+                [[chr_coords(0), chr_coords(centromere_frac) - cap_radius_ax],
+                [chr_coords(centromere_frac) + cap_radius_ax, chr_coords(1)]],
+                transform=ax.transAxes, linewidth=chr_width-2,
+                solid_capstyle='round', color=[197/255, 151/255, 143/255]
+            )
+            # draw the centromere black dot
             ax.scatter([x + dx], [chr_coords(centromere_frac)],
-                       zorder=10, transform=ax.transAxes, s=200, color='k')
+                    zorder=10, transform=ax.transAxes, s=200, color='k')
+            # draw the label, green star
             ax.scatter([x + dx], [chr_coords(locus_frac)],
-                       zorder=15, transform=ax.transAxes, s=500, color='g',
-                       marker='*', edgecolors='k')
+                    zorder=15, transform=ax.transAxes, s=500, color='g',
+                    marker='*', edgecolors='k')
         for linkage in cells[i]:
             ax.plot([x - width_to_chr_center, x + width_to_chr_center],
                     2*[chr_coords(linkage)],
@@ -172,9 +192,9 @@ def draw_cells(cells, min_y=0.05, max_y=0.95, label_loc=location_ura_bp,
             linewidths[closestest_link] = 3.5
         for k, linkage in enumerate(closest_links):
             ax.plot([x - width_to_chr_center, x - width_to_chr_center,
-                     x + width_to_chr_center, x + width_to_chr_center],
+                    x + width_to_chr_center, x + width_to_chr_center],
                     [chr_coords(locus_frac), chr_coords(linkage),
-                     chr_coords(linkage), chr_coords(locus_frac)],
+                    chr_coords(linkage), chr_coords(locus_frac)],
                     color=(1, 1, 1), transform=ax.transAxes,
                     linewidth=linewidths[k], linestyle='--',
                     dash_capstyle='butt', zorder=100)
@@ -187,3 +207,4 @@ def draw_cells(cells, min_y=0.05, max_y=0.95, label_loc=location_ura_bp,
                     transform=ax.transAxes,
                     fontsize=mpl.rcParams['axes.titlesize'])
     return ax
+

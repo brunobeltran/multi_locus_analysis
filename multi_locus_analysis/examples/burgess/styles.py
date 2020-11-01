@@ -22,16 +22,29 @@ golden_ratio = (1 + np.sqrt(5))/2
 
 
 def use_pnas_style(rcParams=None):
+    """Update global mpl.rcParams to use PNAS paper style."""
     if rcParams is None:
         rcParams = mpl.rcParams
     # PNAS declares 9pt default text but uses ~8pt, with ~6pt captions
     rcParams['font.size'] = 8.0
     # however, Sean kept requiresting larger text, so now we're up to
     # 9.6pt font (large), and ~11.52pt titles (x-large)
-    rcParams['xtick.labelsize'] = 'medium'  # default : medium
-    rcParams['ytick.labelsize'] = 'medium'  #
-    rcParams['axes.titlesize'] = 'large'  # default : large,
-    rcParams['axes.labelsize'] = 'medium'  # default : medium
+    rcParams['xtick.labelsize'] = 'large'  # default : medium
+    rcParams['ytick.labelsize'] = 'large'  #
+    rcParams['axes.titlesize'] = 'x-large'  # default : large,
+    rcParams['axes.labelsize'] = 'large'  # default : medium
+    rcParams['text.usetex'] = False
+    rcParams['font.serif'] = 'Fira Sans'
+    rcParams['font.family'] = 'sans-serif'
+    rcParams['figure.figsize'] = (col_width, col_width / golden_ratio)
+    return rcParams
+
+
+def use_rst_style(rcParams=None):
+    if rcParams is None:
+        rcParams = mpl.rcParams
+    # The *intended* PNAS font sizes work well for web
+    rcParams['font.size'] = 8.0
     rcParams['text.usetex'] = False
     rcParams['font.serif'] = 'Fira Sans'
     rcParams['font.family'] = 'sans-serif'
@@ -143,10 +156,38 @@ sim_sm.set_array([])
 sim_sm_continuous = mpl.cm.ScalarMappable(norm=sim_cnorm_continuous, cmap=sim_cmap)
 sim_sm_continuous.set_array([])
 
-# Ignore for now, see what breaks.
-# cnorm_light = mpl.colors.Normalize(vmin=-1, vmax=vmax_light)
-# # scalar mappables are just norm/cmap pairs
-# meiosis_sm_light = mpl.cm.ScalarMappable(norm=cnorm_light, cmap=cmap_light)
-# meiosis_sm_light.set_array([])
 
 cycling_cmap = plt.get_cmap("tab10")
+
+
+def get_sean_ticks(ylim):
+    """
+    Sean wants Sci notation, but with extremal minor tikcks labelled.
+
+    To make this happen, we need a fixed locator, so that we can just use a
+    fixed formatter. here's the locator (i.e. list of tick locs).
+    """
+    subs = 1 + np.arange(9)
+    tickf = mpl.ticker.LogLocator(subs=subs)
+    tick_loc = tickf.tick_values(*ylim)
+    # didn't feel like digging into internals to see intended way to return the
+    # exact range
+    return tick_loc[(tick_loc >= ylim[0]) & (tick_loc <= ylim[1])]
+
+
+def label_sean_ticks(tick_loc, ax=None):
+    """Return list of tick label strings for get_sean_ticks."""
+    num_ticks = len(tick_loc)
+    # we need to set a parent ax cause mpl's api is silly
+    if ax is None:
+        fig, ax = plt.subplots()
+    formatf = mpl.ticker.LogFormatterSciNotation()
+    formatf.set_axis(ax.get_yaxis())
+
+    log_tick = np.log10(tick_loc)
+    near_int = np.isclose(log_tick, np.round(log_tick).astype(int))
+    labels = [''] * num_ticks
+    for i, is_major in enumerate(near_int):
+        if is_major or i == 0 or i == num_ticks - 1:
+            labels[i] = formatf(tick_loc[i])
+    return labels

@@ -1,4 +1,4 @@
--r requirements.txt
+-e .
 black
 pytest
 scikit-image
@@ -6,5 +6,5 @@ sphinx
 sphinx-rtd-theme
 sphinxcontrib-bibtex
 lifelines
--e git+git://github.com/brunobeltran/matplotlib.git@0d1f34338c5aeb409fcc9a009051f9f3bc8c4997#egg=matplotlib
+-e git+git://github.com/matplotlib/matplotlib.git@master#egg=matplotlib
 bayesian-optimization
