@@ -18,8 +18,7 @@ comparing these to established analytical diffusion theory.
 To compute MSDs, velocity correlations, and other time-dependent moments of the
 trajectory, see :ref:`Trajectory Statistics <stats>`. For
 computing waiting times—given a trajectory that can take multiple different
-states (such as "paired" and "unpaired")—see :ref:`Waiting Times
-<finite_window>`. For examples of comparing
+states (such as "paired" and "unpaired")—see `Waiting Times`_. For examples of comparing
 the analytical theory of (polymer) diffusions to the data, see :ref:`Analytical
 Theory <theory>`. Custom plotting code used in the :ref:`theory <theory>`
 section is documented in our :ref:`plotting guide <plots>`, but for actual
@@ -45,3 +44,5 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+.. _Waiting Times: finite-window.ipynb
