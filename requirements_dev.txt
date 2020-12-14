@@ -8,3 +8,4 @@ sphinxcontrib-bibtex
 lifelines
 -e git+git://github.com/matplotlib/matplotlib.git@master#egg=matplotlib
 bayesian-optimization
+nbsphinx

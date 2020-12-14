@@ -42,10 +42,10 @@ f(t)(T - t)` for :math:`t\in[0,T]`. In order to plot the actual shape of
 :math:`f(t)` with this biasing removed, we provide the cdf_exact_given_windows
 function below.
 
-A typical workflow is, given an array of interior times, :code:`t`, and an array
-of the window sizes each time was observed within, :code:`w`, is to extract the
-CDF exactly, then optionally convert that to a PDF to display a regular
-histogram
+A typical workflow is, given an array of interior times, :code:`t`, and an
+array of the window sizes each time was observed within, :code:`w`, is to
+extract the CDF exactly, then optionally convert that to a PDF to display a
+regular histogram
 
 .. code-block:: python
 
@@ -63,21 +63,15 @@ by Beltran and Spakowitz.
 """
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import seaborn as sns
 import scipy
-from scipy import stats
-from scipy import interpolate
-import statsmodels
 import statsmodels.stats.proportion as binom
 
 import bruno_util
 import bruno_util.random
-from bruno_util import pandas_util
 
-###############{{{
+# ##############{{{
 # simulation code
+
 
 @bruno_util.random.strong_default_seed
 def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
@@ -124,7 +118,6 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
 
     Notes
     -----
-
     Consider the waiting time intersecting the left boundary of the
     observation window. The left boundary will be a uniform fraction of
     the way through this wait time. This can easily be seen in the case of
@@ -143,8 +136,11 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
                                      'end_time', 'window_start', 'window_end'])
     pool_size_guess = int(num_replicates*1.5*window_size/(means[0] + means[1]))
     pool_size_guess = max(pool_size_guess, 16)
-    rands = [bruno_util.random.make_pool(rand, pool_size_guess, random_state=random_state)
-             for rand in rands]
+    rands = [
+        bruno_util.random.make_pool(rand, pool_size_guess,
+                                    random_state=random_state)
+        for rand in rands
+    ]
 
     state_names = np.array(states)
     start_times = []
@@ -312,20 +308,33 @@ def state_changes_to_wait_times(traj):
     waits['wait_time'] = waits['end_time'] - waits['start_time']
     waits['window_size'] = waits['window_end'] - waits['window_start']
     waits['wait_type'] = 'interior'
-    waits.loc[waits['start_time'] == waits['window_start'], 'wait_type'] = 'left exterior'
-    waits.loc[waits['end_time'] == waits['window_end'], 'wait_type'] = 'right exterior'
-    waits.loc[waits['window_size'] == waits['wait_time'], 'wait_type'] = 'full exterior'
-    waits.index.name = 'rank_order'
+    waits.loc[
+        waits['start_time'] == waits['window_start'], 'wait_type'
+    ] = 'left exterior'
+    waits.loc[
+        waits['end_time'] == waits['window_end'], 'wait_type'
+    ] = 'right exterior'
+    waits.loc[
+        waits['window_size'] == waits['wait_time'], 'wait_type'
+    ] = 'full exterior'
+    waits['rank_order'] = np.arange(len(waits))
+    waits.set_index('rank_order', inplace=True)
     return waits
 
+
 def traj_to_waits(*args, **kwargs):
-    "Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_wait_times`"
+    """Alias of :func:`state_changes_to_wait_times`"""
     return state_changes_to_wait_times(*args, **kwargs)
 
-def state_changes_to_trajectory(traj, times, state_col='state',
-                                start_times_col='start_time',
-                                end_times_col=None):
-    """Converts a series of state change times into a Series containing
+
+def state_changes_to_movie_frames(
+        traj, times, state_col='state', start_times_col='start_time',
+        end_times_col=None
+    ):
+    """
+    Convert state changes into discrete-time observations of state.
+
+    Takes a Series of state change times into a Series containing
     observations at the times requested. The times become the index.
 
     Parameters
@@ -334,18 +343,18 @@ def state_changes_to_trajectory(traj, times, state_col='state',
         times at which to "measure" what state we're in to make the new
         trajectories.
     traj : pd.DataFrame
-        should have `state_col` and `start_times_col` columns. the values of
-        `state_col` will be copied over verbatim.
-    state_col : string
+        should have *state_col* and *start_times_col* columns. the values of
+        *state_col* will be copied over verbatim.
+    state_col : str, default: 'state'
         name of column containing the state being transitioned out of for each
-        measurement in `traj`.
-    start_times_col : string
-        name of column containing times at which `traj` changed state
-    end_times_col : (optional) string
-        by default, the function assumes that times after the last start time
-        are in the same state. if passed, this column is used to determine at
-        what time the last state "finished". times after this will be labeled
-        as NaN.
+        measurement in *traj*.
+    start_times_col : str, default: 'start_times'
+        name of column containing times at which *traj* changed state
+    end_times_col : (optional) str
+        by default, the function assumes that times after the last provided
+        state transition time are in the same state. if passed, this column is
+        used to determine at what time the last state "finished". times after
+        this will be labeled as NaN.
 
     Returns
     -------
@@ -356,14 +365,12 @@ def state_changes_to_trajectory(traj, times, state_col='state',
 
     Notes
     -----
-
     A start time means that if we observe at that time, the state transition
     will have already happened (right-continuity). This is confusing in
     words, but simple to see in an example (see the example below).
 
     Examples
     --------
-
     For the DataFrame
 
         >>> df = pd.DataFrame([['A',  -1, 0.1], ['B', 0.1, 1.0]],
@@ -371,7 +378,7 @@ def state_changes_to_trajectory(traj, times, state_col='state',
 
     the discretization into tenths of seconds would give
 
-        >>> state_changes_to_trajectory(df, times=np.linspace(0, 1, 11),
+        >>> state_changes_to_movie_frames(df, times=np.linspace(0, 1, 11),
         >>>     end_times_col='end_time')
         t
         0.0      A
@@ -394,7 +401,7 @@ def state_changes_to_trajectory(traj, times, state_col='state',
     If the `end_times_col` argument is omitted, then the last observed state is
     assumed to continue for all `times` requested from then on:
 
-        >>> state_changes_to_trajectory(df, times=np.linspace(0, 1, 11))
+        >>> state_changes_to_movie_frames(df, times=np.linspace(0, 1, 11))
         t
         0.0    A
         0.1    B
@@ -412,7 +419,8 @@ def state_changes_to_trajectory(traj, times, state_col='state',
 
     """
     if len(traj) <= 0:
-        raise ValueError('Need a non-empty trajectory, otherwise how will I know what the possible states are?')
+        raise ValueError('Need a non-empty trajectory, otherwise how will I '
+                         'know what the possible states are?')
     times = np.sort(np.array(times))
     traj.sort_values(start_times_col)
     if times[0] < traj[start_times_col].iloc[0]:
@@ -427,16 +435,16 @@ def state_changes_to_trajectory(traj, times, state_col='state',
         movie.loc[time] = traj[state_col].iloc[i-1]
     if end_times_col is not None:
         last_observed_time = traj[end_times_col].iloc[-1]
-        if last_observed_time <= times[-1]:
-            first_bad_time = np.argmax(last_observed_time <= times)
+        if last_observed_time < times[-1]:
+            first_bad_time = np.argmax(last_observed_time < times)
             movie.loc[times[first_bad_time]:] = np.nan
     movie.name = state_col
     movie.index.name = 't'
     return movie
 
 def traj_to_movie(*args, **kwargs):
-    "Alias of :func:`multi_locus_analysis.finite_window.state_changes_to_trajectory`"
-    return state_changes_to_trajectory(*args, **kwargs)
+    "Alias of :func:`.state_changes_to_movie_frames`."
+    return state_changes_to_movie_frames(*args, **kwargs)
 
 def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     """Converts a discrete trajectory to a dataframe containing each wait time,
@@ -466,15 +474,14 @@ def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     Returns
     -------
     wait_df : pd.DataFrame
-        columns are ['wait_time', 'start_time', 'end_time', 'wait_state',
-        'wait_type', 'min_waits', 'max_waits'], where
-        [wait,end,start]_time columns are self explanatory, wait_state is the
-        value of the states_column during that waiting time, and wait_type is
-        one of 'interior', 'left exterior', 'right exterior', 'full exterior',
-        depending on what kind of waiting time was observed. See
-        the `Notes` section below for detailed explanation of these
-        categories. The 'min/max_waits' columns contain the
-        minimum/maximum possible value of the wait time (resp.), given the
+        columns are ['wait_time', 'start_time', 'end_time', 'state',
+        'wait_type', 'min_waits', 'max_waits'], where [wait,end,start]_time
+        columns are self explanatory, state is the value of the states_column
+        during that waiting time, and wait_type is one of 'interior', 'left
+        exterior', 'right exterior', 'full exterior', depending on what kind of
+        waiting time was observed. See the `Notes` section below for detailed
+        explanation of these categories. The 'min/max_waits' columns contain
+        the minimum/maximum possible value of the wait time (resp.), given the
         observations.
 
         The default index is named "rank_order", since it tracks the order
@@ -493,7 +500,7 @@ def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     started before you began observation (it overlaps the "left" side of your
     interval of observation)
 
-    3) *right exterior* censored times: same as above, but overlappign the
+    3) *right exterior* censored times: same as above, but overlapping the
     "right" side of your interval of observation.
 
     4) *full exterior* censored times: whenever you observe the existence of a
@@ -565,7 +572,7 @@ def discrete_trajectory_to_wait_times(data, t_col='t', state_col='state'):
     min_waits = np.array(earliest_et) - np.array(latest_st)
     max_waits = np.array(latest_et) - np.array(earliest_st)
     df = pd.DataFrame({'start_time': start_times, 'end_time': end_times,
-                       'wait_time': wait_times, 'wait_state': wait_state,
+                       'wait_time': wait_times, 'state': wait_state,
                        'min_waits': min_waits, 'max_waits': max_waits,
                        'wait_type': wait_type})
     df.index.name = 'rank_order'
@@ -648,8 +655,8 @@ def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
         cdf = np.insert(cdf, 0, 0)
     return x, cdf
 
-def ecdf_windowed(times, window_sizes, times_allowed=None,
-        auto_pad_left=None, pad_left_at_x=None, window_func=None):
+def ecdf_windowed(times, window_sizes, times_allowed=None, auto_pad_left=None,
+        pad_left_at_x=None, window_cumulant=None, normalize=True):
     """Compute empirical cumulative distribution function (eCDF) from data
     taken within a finite observation interval.
 
@@ -663,8 +670,8 @@ def ecdf_windowed(times, window_sizes, times_allowed=None,
     times_allowed : (M,) array_like
         Unique values that the data can take. Mostly useful for adding
         eCDF values at locations where data could or should have been observed
-        but none was recorded (i.e. if a movie was taken with a given framerate
-        but not all possible window lengths were observed.
+        but none was recorded (e.g. if a movie was taken with a given framerate
+        but not all possible window lengths were observed).
     auto_pad_left : bool
         If left False, the data will not have a data value at the point where
         the eCDF equals zero. Use mean inter-data spacing to automatically
@@ -672,11 +679,12 @@ def ecdf_windowed(times, window_sizes, times_allowed=None,
     pad_left_at_x : bool
         Same as ``auto_pad_left``, but specify the point at which to add
         the leftmost point.
-    window_func : function
-        The function used to reweight the observations. The default is
-        equivalent to
-        :code:`lambda yi: np.sum(np.heaviside(ymax - yi, 0)*(ymax - yi)))`.
-
+    window_cumulant : (M,) array_like of float
+        For each unique window size in *window_sizes*, the number of
+        trajectories with *at least* that window size. If not specified, it is
+        assumed that each unique value of window size correponds to a unique
+        trajectory. For the case of constant window size, this option is
+        ignored.
 
     Returns
     -------
@@ -694,8 +702,12 @@ def ecdf_windowed(times, window_sizes, times_allowed=None,
     ymax = window_sizes
     y = np.array(y)
     ymax = np.array(ymax)
+    # variables only needed for multiple window sizes
+    ignore_window_cumulant = False
+    uniq_ymax = None
     # allow providing single window size
     if ymax.size == 1:
+        ignore_window_cumulant = True
         ymax = ymax*np.ones_like(y)
     i = np.argsort(y)
     y = y[i]
@@ -707,15 +719,29 @@ def ecdf_windowed(times, window_sizes, times_allowed=None,
     x.sort()
     num_obs = len(y)
     cdf = np.zeros(x.shape, dtype=np.dtype('float'))
-    if window_func is None:
-        window_func = np.vectorize(lambda yi: np.sum(np.heaviside(ymax - yi, 0)*(ymax - yi)))
-    weights = window_func(y)
+    if not ignore_window_cumulant and window_cumulant is None:
+        # get fraction of windows that are at *least* of each width
+        uniq_ymax, window_cumulant = ecdf(ymax, pad_left_at_x=0)
+    weights = (ymax - y)
+    if not ignore_window_cumulant:
+        window_frac_at_least = 1 - window_cumulant
+        # for each observed time, we can get number of windows in which it can
+        # have been observed
+        if uniq_ymax is None:
+            # don't forget to pad_left_at_x=0
+            uniq_ymax = np.insert(np.unique(ymax), 0, 0)
+        # minus 1 because of how searchsorted returns indices
+        window_i = np.searchsorted(uniq_ymax, y) - 1
+        frac_trajs_observable = window_frac_at_least[window_i]
+        weights = weights*frac_trajs_observable
     full_cdf = np.cumsum(1/weights) # before repeats removed
     i = 0
     for xi, xx in enumerate(x):
-        while i + 1 < num_obs and y[i+1] == xx:
+        while i + 1 < num_obs and np.isclose(y[i+1], xx):
             i += 1
-        cdf[xi] = full_cdf[i]/full_cdf[-1]
+        cdf[xi] = full_cdf[i]
+    if normalize:
+        cdf = cdf/full_cdf[-1]
     if auto_pad_left:
         dx = np.mean(np.diff(x))
         x = np.insert(x, 0, x[0] - dx)
@@ -739,6 +765,16 @@ def ecdf_simple(waits, T, pad_left_at_x=0):
 def _double_up(x):
     """[1,2,3] to [1,1,2,2,3,3]"""
     return np.tile(x, (2, 1)).T.flatten()
+
+def bars_given_hist(y, bins):
+    return _double_up(bins)[1:-1], _double_up(y)
+
+def bars_given_discrete_cdf(x, cdf):
+    """like bars_given_cdf for when you've used ecdf's times_allowed arg."""
+    x_mid = (x[1:] + x[:-1]) / 2
+    real_cdf = cdf[:-1]
+    X, Y = bars_given_cdf(x_mid, real_cdf)
+    return np.insert(X, 0, [0, 0]), np.insert(Y, 0, [0, 0])
 
 def bars_given_cdf(x, cdf):
     """takes x, cdf from cdf_exact* functions and makes a plottable histogram

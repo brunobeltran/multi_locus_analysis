@@ -33,7 +33,7 @@ the our :ref:`Analyzing homologous loci example <homolog_example>`.
     :maxdepth: 1
 
     Trajectory Statistics <stats>
-    Waiting Times <finite_window>
+    Waiting Times <finite-window>
     Analytical Theory <theory>
     Plotting <plots>
     API reference <api>
