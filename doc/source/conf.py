@@ -51,7 +51,11 @@ extensions = [
     'sphinx.ext.autosummary',
     'matplotlib.sphinxext.plot_directive',
     'sphinxcontrib.bibtex',
+    'nbsphinx',
 ]
+
+# Where to get citations
+bibtex_bibfiles = ['homologs.bib']
 
 # Autodoc settings
 autosummary_generate = True
