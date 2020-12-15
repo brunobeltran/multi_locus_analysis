@@ -32,7 +32,7 @@ the our :ref:`Analyzing homologous loci example <homolog_example>`.
     :maxdepth: 1
 
     Trajectory Statistics <stats>
-    Waiting Times <finite-window>
+    Waiting Times <finite_window>
     Analytical Theory <theory>
     Plotting <plots>
     API reference <api>
@@ -45,4 +45,4 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
-.. _Waiting Times: finite-window.ipynb
+.. _Waiting Times: finite_window.ipynb
