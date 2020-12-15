@@ -5,7 +5,5 @@ build:
 
 python:
   version: 3.8
-
-conda:
-  environment: rtfd_env.yml
-
+  install:
+    - requirements: ./requirements_dev.txt

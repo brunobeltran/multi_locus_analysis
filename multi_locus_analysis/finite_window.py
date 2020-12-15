@@ -329,7 +329,7 @@ def traj_to_waits(*args, **kwargs):
 
 def state_changes_to_movie_frames(
         traj, times, state_col='state', start_times_col='start_time',
-        end_times_col=None
+        end_times_col='end_time', wait_type_col='wait_type'
     ):
     """
     Convert state changes into discrete-time observations of state.
@@ -353,8 +353,10 @@ def state_changes_to_movie_frames(
     end_times_col : (optional) str
         by default, the function assumes that times after the last provided
         state transition time are in the same state. if passed, this column is
-        used to determine at what time the last state "finished". times after
-        this will be labeled as NaN.
+        used to determine at what time the last state "finished". Times after
+        this will be labeled as NaN. Analagously to how start times are
+        treated, if the end time *exactly* matches the "transition" time,
+        assume this is an "exterior" measurement.
 
     Returns
     -------
@@ -366,7 +368,8 @@ def state_changes_to_movie_frames(
     Notes
     -----
     A start time means that if we observe at that time, the state transition
-    will have already happened (right-continuity). This is confusing in
+    will have already happened (right-continuity), except in the case when the
+    transition happens at *exactly* the window end time. This is confusing in
     words, but simple to see in an example (see the example below).
 
     Examples
@@ -391,29 +394,29 @@ def state_changes_to_movie_frames(
         0.7      B
         0.8      B
         0.9      B
-        1.0    NaN
+        1.0      B
         Name: state, dtype: object
 
-    Notice in particular how at 0.1, the state is already 'B'. Similarly at
-    time 1.0 the state is already "unknown". This is what is meant by the Notes
+    Notice in particular how at 0.1, the state is already 'B'. However at time
+    1.0 the state is not already "unknown". This is what is meant by the Notes
     section above.
 
     If the `end_times_col` argument is omitted, then the last observed state is
     assumed to continue for all `times` requested from then on:
 
-        >>> state_changes_to_movie_frames(df, times=np.linspace(0, 1, 11))
+        >>> state_changes_to_movie_frames(df, times=np.linspace(0, 2, 11))
         t
         0.0    A
-        0.1    B
         0.2    B
-        0.3    B
         0.4    B
-        0.5    B
         0.6    B
-        0.7    B
         0.8    B
-        0.9    B
         1.0    B
+        1.2    B
+        1.4    B
+        1.6    B
+        1.8    B
+        2.0    B
         Name: state, dtype: object
 
 
