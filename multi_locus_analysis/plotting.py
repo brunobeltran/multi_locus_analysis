@@ -229,3 +229,117 @@ def make_all_disps_hist(displacements, centering="mean,std",
             empty_string_labels = ['']*len(labels)
             ax.set_yticklabels(empty_string_labels)
     return axs, deltas, ys
+
+
+class Variable:
+    """Make scipy rv's easy to plot."""
+
+    # which kwargs to init have defaults that change every time you instantiate
+    _cyclers = {
+        'linestyle': ['-', '--', '-.', ':'],
+        'color': sns.color_palette('colorblind')
+    }
+    _cyclers_i = {cycler: 0 for cycler in _cyclers}
+
+    @staticmethod
+    def _get_rv_name(rv):
+        name = rv.dist.name
+        if len(rv.args) > 0:
+            name += '(' + str(rv.args[0])
+            for arg in rv.args[1:]:
+                name += ', ' + arg
+            name += ')'
+        name[0] = name[0].upper()
+        return name
+
+    def __init__(self, rv, **kwargs):
+        self.rv = rv
+        if "name" not in kwargs:
+            kwargs['name'] = Variable._get_rv_name(rv)
+        if "pretty_name" not in kwargs:
+            kwargs["pretty_name"] = kwargs['name']
+        for cycler, options in _cyclers:
+            if cycler not in kwargs:
+                i = Variable._cyclers_i[cycler]
+                kwargs[cycler] = options[i]
+                Variable._cyclers_i[cycler] += 1
+                Variable._cyclers_i[cycler] %= len(options)
+        self.__dict__.update({
+            key: getattr(rv, key) for key in dir(rv)
+        })
+        self.__dict__.update(kwargs)
+
+def compare_interior_kaplan(waits, var=None):
+    """
+    Interior vs kaplan est for `multi_locus_analysis.finite_window.ab_window`.
+
+    Compare the Kaplan-Meier estimator to the empirical distribution function
+    (eCDF) of interior times of data generated using the
+    `multi_locus_analysis.finite_window.ab_window` or
+    `multi_locus_analysis.finite_window.ab_window_fast` functions.
+    """
+    kmfs = {
+        name: lifelines.KaplanMeierFitter() \
+        .fit(state['wait_time'].values,
+                        event_observed=(state['wait_type'] ==
+                                        'interior').values,
+                        label='Meier-Kaplan Estimator, $\pm$95% conf int')
+        for name, state in waits.groupby('state')
+    }
+
+    fig = plt.figure(
+        figsize=figure_size['two-by-half column, four legend entries above'],
+        constrained_layout=True
+    )
+    axs = fig.subplot_mosaic([[var.name for var in wait_vars]])
+
+    T = interior.window_size.max()
+    for var in wait_vars:
+        # lifelines insists on returning a new Axes object....so we have to
+        # plot it first
+        ax = kmfs[var.name].plot_cumulative_density(
+            color=km_color, ax=axs[var.name]
+        )
+        # in addition, since it doesn't make a label that we like, we have to
+        # make our own "fake" label object manually for use later
+        km_l = mpl.lines.Line2D([], [], color=km_color, label='Kaplan-Meier')
+
+
+        # plot actual distribution
+        t = np.linspace(0, T, 100)
+        analytical_l,  = ax.plot(
+            t, var.cdf(t), color='k', label='Actual CDF'
+        )
+
+        # now compute the empirical distribution of the "interior" times
+        interior = waits.loc[
+            (waits['state'] == var.name) & (waits['wait_type'] == 'interior'),
+            'wait_time'
+        ].values
+        x, cdf = fw.ecdf(interior, pad_left_at_x=0)
+
+        interior_l, = ax.plot(
+            x, cdf*var.cdf(x[-1]), c=var.color, ls=interior_linestyle,
+            label='"Interior" eCDF'
+        )
+
+        # prettify the plot
+        ax.set_xlim([0, waits.window_size.max()])
+        ax.set_ylim([0, 1])
+        ax.set_xlabel('time')
+        ax.set_ylabel(r'Cumulative probability')
+
+        # an empty handle acts effectively as a legend "title"
+#     empty_handle = mpl.patches.Patch(alpha=0, label=var.pretty_name)
+        legend = ax.legend(
+            title=var.pretty_name,
+            handles=[interior_l, km_l, analytical_l],
+            # align bottom of legend 2% ax height above axis, filling full axis width
+            bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
+            ncol=1, mode="expand", borderaxespad=0.
+        )
+#     legend.get_texts()[0].set_ha('right')
+#     legend.get_texts()[0].set_position((-160, 0))
+
+
+
