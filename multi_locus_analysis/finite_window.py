@@ -299,26 +299,23 @@ def state_changes_to_wait_times(traj):
     discrete time points (on a grid), so the wait times it returns are
     exact."""
     waits = traj.copy()
-    waits['start_time'] = np.max([
-        traj['start_time'].values, traj['window_start'].values],
-        axis=0)
-    waits['end_time'] = np.min(
-        [traj['end_time'].values, traj['window_end'].values],
-        axis=0)
+    num_waits = len(waits)
+    waits['rank_order'] = np.arange(num_waits)
+    waits.set_index('rank_order', inplace=True)
+    if num_waits == 0:
+        return waits
     waits['wait_time'] = waits['end_time'] - waits['start_time']
+    waits.loc[0, 'wait_time'] = \
+            waits.loc[0, 'end_time'] - waits.loc[0, 'window_start']
+    waits.loc[num_waits-1, 'wait_time'] = \
+            waits.loc[0, 'window_end'] - waits.loc[0, 'start_time']
     waits['window_size'] = waits['window_end'] - waits['window_start']
     waits['wait_type'] = 'interior'
-    waits.loc[
-        waits['start_time'] == waits['window_start'], 'wait_type'
-    ] = 'left exterior'
-    waits.loc[
-        waits['end_time'] == waits['window_end'], 'wait_type'
-    ] = 'right exterior'
-    waits.loc[
-        waits['window_size'] == waits['wait_time'], 'wait_type'
-    ] = 'full exterior'
-    waits['rank_order'] = np.arange(len(waits))
-    waits.set_index('rank_order', inplace=True)
+    if num_waits == 1:
+        waits['wait_type'] = 'full exterior'
+    else:
+        waits.loc[0, 'wait_type'] = 'left exterior'
+        waits.loc[num_waits-1, 'wait_type'] = 'right exterior'
     return waits
 
 
