@@ -119,3 +119,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# dask temporary files
+dask-worker-space
+
+# matplotlib@master install
+src/matplotlib
