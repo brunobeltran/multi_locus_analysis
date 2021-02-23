@@ -1,7 +1,8 @@
 """Module for fitting multi-particle stuff."""
 from .stats import *
-from .plotting import *
 from .dataframes import *
+from . import plotting
+from . import finite_window
 
 
 from ._version import get_versions

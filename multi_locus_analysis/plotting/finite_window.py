@@ -1,8 +1,20 @@
 """
 Code specialized for plotting test runs of the finite_window code.
 """
+from .. import finite_window as fw
+
+import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
+import lifelines
+
+import bruno_util.plotting as bplt
+figure_size = bplt.use_cell_style(mpl.rcParams)
+
+km_color = sns.color_palette('colorblind')[0]
+interior_color = sns.color_palette('colorblind')[1]
+interior_linestyle = '-.'
 
 class Variable:
     """
@@ -74,7 +86,7 @@ _default_vars = [
 ]
 
 
-def compare_interior_kaplan(waits, var=None):
+def compare_interior_kaplan(waits, var_pair):
     """
     Interior vs kaplan est for `multi_locus_analysis.finite_window.ab_window`.
 
@@ -83,23 +95,23 @@ def compare_interior_kaplan(waits, var=None):
     `multi_locus_analysis.finite_window.ab_window` or
     `multi_locus_analysis.finite_window.ab_window_fast` functions.
     """
-    kmfs = {
-        name: lifelines.KaplanMeierFitter() \
-        .fit(state['wait_time'].values,
-                        event_observed=(state['wait_type'] ==
-                                        'interior').values,
-                        label='Meier-Kaplan Estimator, $\pm$95% conf int')
-        for name, state in waits.groupby('state')
-    }
+    kmfs = {}
+    for name, state in waits.groupby('state'):
+        times = state['wait_time'].values
+        not_censored = (state['wait_type'] == 'interior').values
+        kmfs[name] = lifelines.KaplanMeierFitter().fit(
+            times, event_observed=not_censored,
+             label='Meier-Kaplan Estimator, $\pm$95% conf int'
+        )
 
     fig = plt.figure(
         figsize=figure_size['two-by-half column, four legend entries above'],
         constrained_layout=True
     )
-    axs = fig.subplot_mosaic([[var.name for var in wait_vars]])
+    axs = fig.subplot_mosaic([[var.name for var in var_pair]])
 
-    T = interior.window_size.max()
-    for var in wait_vars:
+    T = waits.window_size.max()
+    for var in var_pair:
         # lifelines insists on returning a new Axes object....so we have to
         # plot it first
         ax = kmfs[var.name].plot_cumulative_density(
@@ -134,17 +146,14 @@ def compare_interior_kaplan(waits, var=None):
         ax.set_xlabel('time')
         ax.set_ylabel(r'Cumulative probability')
 
-        # an empty handle acts effectively as a legend "title"
-#     empty_handle = mpl.patches.Patch(alpha=0, label=var.pretty_name)
         legend = ax.legend(
             title=var.pretty_name,
             handles=[interior_l, km_l, analytical_l],
-            # align bottom of legend 2% ax height above axis, filling full axis width
+            # align bottom of legend 2% ax height above axis, filling full axis
+            # width
             bbox_to_anchor=(0., 1.02, 1., .102), loc='lower left',
             ncol=1, mode="expand", borderaxespad=0.
         )
-#     legend.get_texts()[0].set_ha('right')
-#     legend.get_texts()[0].set_position((-160, 0))
 
 
 
