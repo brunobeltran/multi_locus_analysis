@@ -1,8 +1,9 @@
-r"""For computing statistics of particle motions
+r"""
+For computing moments of particle motions.
 
-When dealing with trajectory data, all the common readouts can be thought of as
-moments of the trajectory with different time lags or discrete derivatives
-applied.
+When dealing with trajectory data, most of the common readouts can simply be
+thought of as moments of the trajectory with different time lags or discrete
+derivatives applied.
 
 More precisely, suppose you have trajectory data :math:`X_i(t_k)`, then
 we define the discrete velocity (the first discrete derivative of the particle
@@ -213,46 +214,6 @@ def moments(df, cols=None, ns=[0,1,2]):
     df.rename_axis('Moment', axis='columns', inplace=True)
     return df.T.unstack()
 
-def convex_hull(df, xcol='x', ycol='y', zcol=None, tcol='t', allowed_t=None,
-                max_t=None, volume=False, area=False):
-    """
-    Compute the convex hull of a trajectory.
-
-    For a DataFrame containing a trajectory with (X,[Y,[Z]]) values in `xcol`,
-    `ycol`, and `zcol` (respectively), use scipy.spatial.ConvexHull (uses
-    "QHull" under the hood) to calculate the convex hull (including
-    area/volume), optionally only looking at certain times along the
-    trajectory.
-
-    2D by default (xcol='x', ycol='y').
-    """
-    cols = [x for x in [xcol, ycol, zcol] if x is not None]
-    good_ix = ~np.isnan(df[xcol])
-    if allowed_t is not None:
-        good_ix = good_ix & np.isin(df[tcol], allowed_t)
-    if max_t is not None:
-        good_ix = good_ix & (df[tcol] <= max_t)
-    points = df[cols].values[good_ix, :]
-    # ensure we have enough points to even construct a single simplex given the
-    # dimension that we're interested in, otherwise return 0 (the correct
-    # "measure" of the reduced dimensional simplex may not be zero, but this is
-    # ignored, so that all returned "n-volumes" are measured for the same n)
-    min_points = 4 if zcol else 3
-    if len(df[cols].drop_duplicates()) < min_points:
-        return np.nan
-    try:
-        qhull = scipy.spatial.ConvexHull(points)
-    except scipy.spatial.qhull.QhullError:
-        # likely co-planarity/co-linearity
-        return np.nan
-    if volume:
-        return qhull.volume
-    elif area:
-        return qhull.area
-    else:
-        return qhull
-
-
 # end Apply to groupby'd DataFrame
 ###############}}}
 
@@ -443,92 +404,3 @@ def vvc_stats_by_hand(file_name, groups, print_interval=None, skip_lines=None):
 ###############}}}
 
 
-###############{{{
-# TODO: not yet made general, but useful statistics
-def scale_and_test_normality(vx):
-    """Should be applied to a vector of velocities, vx"""
-    vx = vx[np.isfinite(vx)]
-    vx -= np.mean(vx)
-    std = np.std(vx)
-    if std > 0:
-        vx /= np.std(vx)
-    num_disps = vx.size
-    ksstat, ks_pval = scipy.stats.kstest(vx, 'norm', mode='asymp')
-    ngp = np.mean(np.power(vx, 4))/(3*np.power(np.mean(np.power(vx, 2)), 2)) - 1
-    try:
-        shapiro_stat, shapiro_pval = scipy.stats.shapiro(vx)
-    except:
-        shapiro_stat = shapiro_pval = np.nan
-    is_shapiro_pval_accurate = num_disps < 5000 # from scipy docs, v 19.1
-    anderson_stat, crit_vals, crit_levels = scipy.stats.anderson(vx)
-    if np.isfinite(anderson_stat):
-        crit_vals = np.concatenate(([0], crit_vals, [np.inf]))
-        crit_alphas = np.concatenate(([100], crit_levels, [0]))/100
-        ihigh = np.where(crit_vals < anderson_stat)[0][0]
-        ilow = ihigh + 1
-    else:
-        ihigh = ilow = 0
-        crit_vals = [np.nan]
-        crit_alphas = [np.nan]
-    return {'NGP': ngp, 'KS Statistic': ksstat, 'KS p-value': ks_pval,
-            'Shapiro-Wilk Statistic': shapiro_stat, 'Shapiro-Wilk p-value':
-            shapiro_pval, 'Shapiro-Wilk p-value is accurate':
-            is_shapiro_pval_accurate, 'Anderson-Darling Statistic':
-            anderson_stat, 'Anderson-Darling alpha lower bound': crit_alphas[ilow],
-            'Anderson-Darling alpha upper bound': crit_alphas[ihigh],
-            'Anderson-Darling upper crit value': crit_vals[ihigh],
-            'Anderson-Darling lower crit value': crit_vals[ilow]
-            }
-
-def add_savgol(traj, window_size, order=3):
-    if len(traj['x']) <= window_size:
-        traj['savgol'+str(window_size)+'_x'] = np.nan
-        traj['savgol'+str(window_size)+'_y'] = np.nan
-        traj['savgol'+str(window_size)+'_x_fluct'] = np.nan
-        traj['savgol'+str(window_size)+'_y_fluct'] = np.nan
-    else:
-        traj['savgol'+str(window_size)+'_x'] = savgol_filter(traj['x'], window_size, order)
-        traj['savgol'+str(window_size)+'_y'] = savgol_filter(traj['y'], window_size, order)
-        traj['savgol'+str(window_size)+'_x_fluct'] = traj['x'] - traj['savgol'+str(window_size)+'_x']
-        traj['savgol'+str(window_size)+'_y_fluct'] = traj['y'] - traj['savgol'+str(window_size)+'_y']
-    return traj
-
-def add_savgol_window(data, window_sizes):
-    for window_size in window_sizes:
-        data = data.groupby(['experiment', 'movie name', 'molecule id']
-                            ).apply(partial(add_savgol, window_size=window_size))
-    return data
-
-def get_savgol_vels(data, window_sizes):
-# we're gonna do the same thing twice, basically get vels for each window size
-    savgol_vels = []
-    for window_size in window_sizes:
-        fluct_vels = data.groupby(['experiment', 'movie name', 'molecule id']).apply(partial(pos_to_all_vel, delta=1, xcol='savgol'+str(window_size)+'_x', ycol='savgol'+str(window_size)+'_y'))
-        fluct_vels['window_size'] = window_size
-        savgol_vels.append(fluct_vels)
-    savgol_vels = [vel.reset_index().set_index(['experiment', 'movie name', 'molecule id', 'window_size', 'ti', 'delta']) for vel in savgol_vels]
-    savgol_vels = pd.concat(savgol_vels)
-# now for _fluct columns
-    corrected_vels = []
-    for window_size in window_sizes:
-        fluct_vels = data.groupby(['experiment', 'movie name', 'molecule id']).apply(partial(pos_to_all_vel, delta=1, xcol='savgol'+str(window_size)+'_x_fluct', ycol='savgol'+str(window_size)+'_y_fluct'))
-        fluct_vels['window_size'] = window_size
-        corrected_vels.append(fluct_vels)
-    corrected_vels = [vel.reset_index().set_index(['experiment', 'movie name', 'molecule id', 'window_size', 'ti', 'delta']) for vel in corrected_vels]
-    return savgol_vels, pd.concat(corrected_vels)
-
-def get_savgol_msds(savgol_data, window_sizes):
-    msds = []
-    for window_size in window_sizes:
-        savgol_disps = savgol_data.groupby(['experiment', 'movie name', 'molecule id']).apply(partial(pos_to_all_vel, absolute_time=True, xcol='savgol'+str(window_size)+'_x_fluct', ycol='savgol'+str(window_size)+'_y_fluct'))
-        sq_disps = pd.DataFrame(index=savgol_disps.index)
-        sq_disps['sq_disp'] = np.power(savgol_disps['vx'], 2) +np.power(savgol_disps['vy'], 2)
-        sq_disps['delta_abs'] = savgol_disps['delta_abs'].round(3)
-        savgol_msds = sq_disps.groupby(['delta_abs'])['sq_disp'].agg(['mean', 'std', 'count'])
-        savgol_msds['window_size'] = window_size
-        savgol_msds = savgol_msds.reset_index().set_index(['window_size', 'delta_abs'])
-        msds.append(savgol_msds)
-    return pd.concat(msds)
-
-# end TODO: not yet made general, but useful statistics
-###############}}}
