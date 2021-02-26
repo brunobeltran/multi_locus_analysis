@@ -174,7 +174,7 @@ def compare_interior_kaplan(obs, var_pair, rescale_kaplan=False,
     return fig
 
 
-def exterior_ecdf(obs, var_pair):
+def exterior_hist(obs, var_pair):
     fig, ax = plt.subplots(
         figsize=figure_size['full column'],
         constrained_layout=True

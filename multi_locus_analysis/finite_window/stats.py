@@ -8,11 +8,14 @@ from ..stats import ecdf
 
 def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
                  times_allowed=None, pad_left_at_x=0):
+    if len(exterior) < 5 or len(interior) < 5:
+        raise ValueError("Need enough exterior *and* interior times to "
+                         "perform correction.")
+
     x_ext, cdf_ext = ecdf(exterior, times_allowed, pad_left_at_x=pad_left_at_x)
     x_int, cdf_int = ecdf_windowed(
-        interior, window_sizes, times_allowed,
+        interior, window_sizes, window_sf, times_allowed,
         pad_left_at_x=pad_left_at_x,
-        window_sf=window_sf
     )
     # now compute integral of CDF w.r.t. t
     ccdf_int = np.zeros_like(cdf_int)
@@ -22,6 +25,7 @@ def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
         times_allowed = np.sort(np.concatenate((x_int, x_ext)))
         cdf_ext = np.interp(times_allowed, x_ext, cdf_ext)
         ccdf_int = np.interp(times_allowed, x_int, ccdf_int)
+        cdf_int = np.interp(times_allowed, x_int, cdf_int)
 
     def err_f(ab, t, integrated_cdf, exterior_cdf):
         return np.linalg.norm(
@@ -36,9 +40,9 @@ def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
     )
     if not opt_out.success:
         raise ValueError("Unable to compute F_X(T)!")
-    Z_X, F_T = opt_out.x
-
-    return times_allowed, cdf_int*(-F_T/Z_X)
+    Z_X, b = opt_out.x
+    F_T = -b/Z_X
+    return times_allowed, cdf_int, cdf_ext, Z_X, F_T
 
 
 def ecdf_windowed(
