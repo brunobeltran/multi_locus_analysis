@@ -123,7 +123,8 @@ def ecdf_windowed(
     cdf = np.zeros(x.shape, dtype=np.dtype('float'))
     if not ignore_window_sf and window_sf is None:
         # get fraction of windows that are at *least* of each width
-        uniq_ymax, window_sf = ecdf(ymax, pad_left_at_x=0)
+        uniq_ymax, window_ecdf = ecdf(ymax, pad_left_at_x=0)
+        window_sf = 1 - window_ecdf
     weights = (ymax - y)
     if not ignore_window_sf:
         # for each observed time, we can get number of windows in which it can
