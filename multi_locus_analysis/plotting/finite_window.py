@@ -19,6 +19,59 @@ interior_color = sns.color_palette('colorblind')[1]
 interior_linestyle = '-.'
 
 
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
+from matplotlib.transforms import Affine2D
+
+
+# make cool legends where stair lines and straight lines are treated
+# differently
+stair_path = Path([
+    [-1, -1], [-1/3, -1], [-1/3, 1], [1/3, 1], [1/3, -1], [1, -1], [1, 1],
+    [5/3, 1]
+])
+bbox = stair_path.get_extents()
+make_unit = Affine2D() \
+        .translate(-bbox.x0, -bbox.y0) \
+        .scale(1/bbox.width, 1/bbox.height)
+stair_path = make_unit.transform_path(stair_path)
+
+class StairLine(object):
+    def __init__(self, line):
+        self.line = line
+
+    def get_label(self):
+        return self.line._label
+
+    def get_color(self):
+        return self.line.get_color()
+
+    def get_linewidth(self):
+        return self.line.get_linewidth()
+
+    def get_alpha(self):
+        return self.line.get_alpha()
+
+class StairLineHandler(object):
+
+    def __init__(self, **kwargs):
+        self.path_patch_kw = kwargs
+
+    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
+        x0, y0 = handlebox.xdescent, handlebox.ydescent
+        width, height = handlebox.width, handlebox.height
+        put_in_leg = Affine2D().translate(x0, y0).scale(width, height)
+        leg_patch = put_in_leg.transform_path(stair_path)
+        patch = PathPatch(leg_patch, color=orig_handle.get_color(),
+                          alpha=orig_handle.get_alpha(),
+                          transform=handlebox.get_transform(),
+                          lw=orig_handle.get_linewidth(),
+                          fill=False,
+                          **self.path_patch_kw)
+        handlebox.add_artist(patch)
+        return patch
+
+
 class Variable:
     """
     Wrap scipy rv's so they're easy to plot.
@@ -422,3 +475,205 @@ def scaling_normalizers(obs, var_pair):
     legend.get_texts()[4].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
 
     return fig
+
+
+def rescaled_interior(obs, var_pair, traj_cols=['replicate']):
+    fig, ax = plt.subplots(
+        figsize=figure_size['full column'],
+        constrained_layout=True
+    )
+
+    legend_entries = {var.name: [mpl.patches.Patch(alpha=0, label=var.pretty_name)]
+                    for var in var_pair}
+    T = obs.window_size.max()
+    for var in var_pair:
+        line, = ax.plot(t, var.pdf(t), ls=var.linestyle,
+                        c='k', label=f'True $f_X(t)$')
+        legend_entries[var.name].append(line)
+
+
+        interior = obs.loc[
+            (obs['state'] == var.name) & (obs['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        exterior = obs.loc[
+                (obs['state'] == var.name)
+                & (obs['wait_type'] != 'interior')
+                & (obs['wait_type'] != 'full exterior'),
+                ['wait_time', 'window_size']
+        ].copy()
+        window_sizes = obs.groupby(traj_cols)['window_size'].first().values
+        # now sorted
+        window_sizes, window_cdf = stats.ecdf(window_sizes)
+        window_sf = 1 - window_cdf
+        all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
+            exterior.wait_time.values,
+            interior.wait_time.values,
+            interior.window_size.values
+        )
+
+        interior['correction'] = 1/(interior.window_size - interior.wait_time)
+        t_bins = np.linspace(0, T, 51)
+        dt = np.diff(t_bins)
+        y, t_bins = np.histogram(
+            interior.wait_time.values,
+            weights=interior.correction / np.sum(interior.correction),
+            bins=t_bins
+        )
+        y = y / dt
+        X, Y = stats.bars_given_hist(y, t_bins)
+        line, = ax.plot(X, Y*F_T, c=var.color, label='Fully Corrected\nInterior PDF')
+        legend_entries[var.name].append(line)
+
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([0, 2.5])
+    handles = [h for _, patches in legend_entries.items() for h in patches]
+    legend = ax.legend(handles=handles, ncol=2, columnspacing=0.5)
+
+    # hack to left-align my "fake" legend column "titles"
+    for vpack in legend._legend_handle_box.get_children():
+        for hpack in vpack.get_children()[:1]:
+            hpack.get_children()[0].set_width(0)
+    # even after the hack, need to move them over to "look" nice
+    legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+    legend.get_texts()[3].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+
+
+def int_ext_cdf_comparison(obs, var_pair, traj_cols=['replicate']):
+    fig, ax = plt.subplots(
+        figsize=figure_size['full column'],
+        constrained_layout=True
+    )
+
+    legend_entries = {var.name: [mpl.patches.Patch(alpha=0, label=var.pretty_name)]
+                    for var in var_pair}
+    T = obs.window_size.max()
+    t = np.linspace(0, T, 101)
+    for var in var_pair:
+        line, = ax.plot(t, var.cdf(t), ls=var.linestyle,
+                        c='k', label=f'True $F_X(t)$')
+        legend_entries[var.name].append(line)
+
+
+        interior = obs.loc[
+            (obs['state'] == var.name) & (obs['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        exterior = obs.loc[
+                (obs['state'] == var.name)
+                & (obs['wait_type'] != 'interior')
+                & (obs['wait_type'] != 'full exterior'),
+                ['wait_time', 'window_size']
+        ].copy()
+        window_sizes = obs.groupby(traj_cols)['window_size'].first().values
+        # now sorted
+        window_sizes, window_cdf = stats.ecdf(window_sizes)
+        window_sf = 1 - window_cdf
+        all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
+            exterior.wait_time.values,
+            interior.wait_time.values,
+            interior.window_size.values
+        )
+
+        line, = ax.plot(all_times, cdf_int*F_T, c=var.color, alpha=0.8,
+                        label='Interior CDF estimate')
+        legend_entries[var.name].append(line)
+
+        t_bins = np.linspace(0, T, 51)
+        y, t_bins = np.histogram(
+            exterior.wait_time.values,
+            bins=t_bins,
+            density=1
+        )
+        X, Y = stats.bars_given_hist(y, t_bins)
+
+        line, = ax.plot(X, 1 - Y/Z_X, c=var.color, alpha=0.8,
+                        label='Exterior CDF estimate')
+        legend_entries[var.name].append(StairLine(line))
+
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([0, 1])
+    handles = [h for _, patches in legend_entries.items() for h in patches]
+    legend = ax.legend(handles=handles, ncol=2, columnspacing=0.5,
+                    handler_map={StairLine: StairLineHandler()})
+
+    # hack to left-align my "fake" legend column "titles"
+    for vpack in legend._legend_handle_box.get_children():
+        for hpack in vpack.get_children()[:1]:
+            hpack.get_children()[0].set_width(0)
+    # even after the hack, need to move them over to "look" nice
+    legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+    legend.get_texts()[4].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+
+
+def final_cdf_comparison(obs, var_pair, traj_cols=['replicate'], **kwargs):
+    fig, ax = plt.subplots(
+        figsize=figure_size['full column'],
+        constrained_layout=True
+    )
+
+    legend_entries = {var.name: [mpl.patches.Patch(alpha=0, label=var.pretty_name)]
+                    for var in var_pair}
+    T = obs.window_size.max()
+    t = np.linspace(0, T, 101)
+    for var in var_pair:
+        line, = ax.plot(t, var.cdf(t), ls=var.linestyle,
+                        c='k', label=f'True $F_X(t)$')
+        legend_entries[var.name].append(line)
+
+
+        interior = obs.loc[
+            (obs['state'] == var.name) & (obs['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        exterior = obs.loc[
+                (obs['state'] == var.name)
+                & (obs['wait_type'] != 'interior')
+                & (obs['wait_type'] != 'full exterior'),
+                ['wait_time', 'window_size']
+        ].copy()
+        window_sizes = obs.groupby(traj_cols)['window_size'].first().values
+        # now sorted
+        window_sizes, window_cdf = stats.ecdf(window_sizes)
+        window_sf = 1 - window_cdf
+        all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
+            exterior.wait_time.values,
+            interior.wait_time.values,
+            interior.window_size.values
+        )
+
+        line, = ax.plot(all_times, cdf_int*F_T, c=var.color, alpha=0.8,
+                        label='Interior CDF estimate')
+        legend_entries[var.name].append(line)
+
+        t_bins = np.linspace(0, T, 51)
+        y, t_bins = np.histogram(
+            exterior.wait_time.values,
+            bins=t_bins,
+            density=1
+        )
+        X, Y = stats.bars_given_hist(y, t_bins)
+
+        line, = ax.plot(X, 1 - Y/Z_X, c=var.color, alpha=0.8,
+                        label='Exterior CDF estimate')
+        legend_entries[var.name].append(StairLine(line))
+
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([0, 1])
+    handles = [h for _, patches in legend_entries.items() for h in patches]
+    legend = ax.legend(handles=handles, ncol=2, columnspacing=0.5,
+                    handler_map={StairLine: StairLineHandler()})
+
+    # hack to left-align my "fake" legend column "titles"
+    for vpack in legend._legend_handle_box.get_children():
+        for hpack in vpack.get_children()[:1]:
+            hpack.get_children()[0].set_width(0)
+    # even after the hack, need to move them over to "look" nice
+    legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+    legend.get_texts()[4].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
