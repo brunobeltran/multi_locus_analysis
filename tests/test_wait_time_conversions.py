@@ -1,10 +1,53 @@
 from multi_locus_analysis import finite_window as fw
 import pandas as pd
+import pytest
 import numpy as np
 
 
 def is_equal_or_both_nan(x, y):
     return np.all((x == y) | (np.isnan(x) & np.isnan(y)))
+
+
+def test_old_v_new_obs_to_sim():
+    from scipy.stats import beta
+
+    # for Beta distributions, making the window size a little less than 1
+    # guarantees there's not too many, and also not too few waits per
+    # trajectory, so that the effect we want to show is visible
+    example_window = 0.8
+    wait_vars = [beta(5, 2), beta(2, 2)]
+    N_traj = 1_000
+
+    het_trajs = [
+        fw.ab_window(
+            [var.rvs for var in wait_vars],
+            window_size=window,
+            offset=-100*np.sum([var.mean() for var in wait_vars]),
+            num_replicates=N_traj,
+            states=['A', 'B'],
+        )
+        for window in np.array([1/2, 1, 2])*example_window
+    ]
+    het_trajs = pd.concat(het_trajs, ignore_index=True)
+    multi_T_waits = fw.sim_to_obs(
+        het_trajs, traj_cols=['window_end', 'replicate']
+    )
+    with pytest.deprecated_call():
+        multi_T_waits_old = het_trajs \
+            .groupby(['window_end', 'replicate']) \
+            .apply(fw.traj_to_waits)
+    del multi_T_waits_old['replicate']
+    del multi_T_waits_old['window_end']
+
+    assert np.all(
+        multi_T_waits.reset_index()['rank_order']
+        == multi_T_waits_old.reset_index()['rank_order']
+    )
+    assert np.all(np.isclose(
+        multi_T_waits['wait_time'], multi_T_waits_old['wait_time']
+    ))
+    assert np.all(multi_T_waits['wait_type'] == multi_T_waits_old['wait_type'])
+    assert np.all(multi_T_waits['state'] == multi_T_waits_old['state'])
 
 
 def test_traj_to_movie():

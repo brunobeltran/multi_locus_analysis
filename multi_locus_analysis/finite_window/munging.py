@@ -1,10 +1,12 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from pandas.api.types import CategoricalDtype
 
 censor_t = CategoricalDtype(
     categories=['interior', 'left exterior', 'right exterior',
-                'doubly exterior'],
+                'full exterior'],
     ordered=False
 )
 
@@ -20,26 +22,27 @@ def state_changes_to_wait_times(traj):
     This function deals with "continuous" wait times, as in not measured at
     discrete time points (on a grid), so the wait times it returns are
     exact."""
-    # raise DeprecationWarning('Deprecated in favor of '
-    #                          'mla.finite_window.sim_to_obs')
+    warnings.warn('Use sim_to_obs instead!', DeprecationWarning)
     waits = traj.copy()
     num_waits = len(waits)
-    waits['rank_order'] = np.arange(num_waits)
+    waits['rank_order'] = np.arange(num_waits) + 1
     waits.set_index('rank_order', inplace=True)
     if num_waits == 0:
         return waits
     waits['wait_time'] = waits['end_time'] - waits['start_time']
-    waits.loc[0, 'wait_time'] \
-        = waits.loc[0, 'end_time'] - waits.loc[0, 'window_start']
-    waits.loc[num_waits-1, 'wait_time'] \
-        = waits.loc[0, 'window_end'] - waits.loc[0, 'start_time']
+    waits.loc[1, 'wait_time'] \
+        = waits.loc[1, 'end_time'] - waits.loc[1, 'window_start']
+    waits.loc[num_waits, 'wait_time'] = \
+        waits.loc[num_waits, 'window_end'] \
+        - waits.loc[num_waits, 'start_time']
     waits['window_size'] = waits['window_end'] - waits['window_start']
     waits['wait_type'] = 'interior'
     if num_waits == 1:
         waits['wait_type'] = 'full exterior'
+        waits['wait_time'] = waits['window_size'].copy()
     else:
-        waits.loc[0, 'wait_type'] = 'left exterior'
-        waits.loc[num_waits-1, 'wait_type'] = 'right exterior'
+        waits.loc[1, 'wait_type'] = 'left exterior'
+        waits.loc[num_waits, 'wait_type'] = 'right exterior'
     return waits
 
 
@@ -48,12 +51,12 @@ def traj_to_waits(*args, **kwargs):
     return state_changes_to_wait_times(*args, **kwargs)
 
 
-def simulations_to_observations(simulations):
+def simulations_to_observations(simulations, traj_cols=['replicate']):
     """
     Vectorized extracting of "observed" wait times.
     """
     sim = simulations
-    obs = sim[['replicate', 'state']].copy()
+    obs = sim[traj_cols + ['state']].copy()
     # observed times are only within the interval
     obs['start_time'] = np.max(sim[['start_time', 'window_start']].to_numpy(),
                                axis=1)
@@ -64,9 +67,9 @@ def simulations_to_observations(simulations):
     obs['window_size'] = sim['window_end'] - sim['window_start']
 
     # vectorized-ly extract rank order/num_waits to classify each wait time
-    obs['rank_order'] = obs.groupby('replicate')['start_time'].rank()
-    obs.set_index('replicate', inplace=True)
-    obs['num_waits'] = obs.groupby('replicate')['rank_order'].max()
+    obs['rank_order'] = obs.groupby(traj_cols)['start_time'].rank().astype(int)
+    obs.set_index(traj_cols, inplace=True)
+    obs['num_waits'] = obs.groupby(traj_cols)['rank_order'].max()
 
     # default to assuming its an interior time
     obs['wait_type'] = 'interior'
@@ -79,9 +82,9 @@ def simulations_to_observations(simulations):
         'wait_type'
     ] = 'right exterior'
     # and isolated wait times are doubly exterior
-    obs.loc[obs['num_waits'] == 1, 'wait_type'] = 'doubly exterior'
+    obs.loc[obs['num_waits'] == 1, 'wait_type'] = 'full exterior'
 
-    return obs
+    return obs.set_index('rank_order', append=True)
 
 
 sim_to_obs = simulations_to_observations

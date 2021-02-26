@@ -189,7 +189,8 @@ def exterior_ecdf(obs, var_pair):
         exterior = obs.loc[
             (obs['state'] == var.name)
             & (obs['wait_type'] != 'interior')
-            & (obs['wait_type'] != 'doubly exterior'),
+            & (obs['wait_type'] != 'doubly exterior')  # backcompat
+            & (obs['wait_type'] != 'full exterior'),
             ['wait_time', 'window_size']
         ]
 

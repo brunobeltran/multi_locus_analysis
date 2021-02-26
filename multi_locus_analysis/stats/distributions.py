@@ -37,8 +37,8 @@ def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
         the eCDF equals zero. Use mean inter-data spacing to automatically
         generate an aesthetically reasonable such point.
     pad_left_at_x : bool
-        Same as ``auto_pad_left``, but specify the point at which to add
-        the leftmost point.
+        If ``auto_pad_left`` is False, you may explicitly specify the value at
+        which to add the leftmost extra point.
 
     Returns
     -------
@@ -50,7 +50,8 @@ def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
 
     Notes
     -----
-    If using ``y_allowed``, the *pad_left* parameters are redundant.
+    If using ``y_allowed``, the *pad_left* parameters are redundant, and should
+    typically be left False/None.
     """
     y = np.array(y)
     y.sort()
@@ -59,6 +60,11 @@ def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
     else:
         x = np.unique(y)
     x.sort()
+    if auto_pad_left:
+        dx = np.mean(np.diff(x))
+        x = np.insert(x, 0, x[0] - dx)
+    elif pad_left_at_x is not None:
+        x = np.insert(x, 0, pad_left_at_x)
     num_obs = len(y)
     cdf = np.zeros(x.shape, dtype=np.dtype('float'))
     i = 0
@@ -66,13 +72,6 @@ def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
         while i < num_obs and y[i] <= xx:
             i += 1
         cdf[xi] = i/float(num_obs)
-    if auto_pad_left:
-        dx = np.mean(np.diff(x))
-        x = np.insert(x, 0, x[0] - dx)
-        # x = np.append(x, x[-1] + dx)
-    elif pad_left_at_x is not None:
-        x = np.insert(x, 0, pad_left_at_x)
-        cdf = np.insert(cdf, 0, 0)
     return x, cdf
 
 
