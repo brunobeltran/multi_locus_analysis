@@ -610,6 +610,87 @@ def int_ext_cdf_comparison(obs, var_pair, traj_cols=['replicate']):
     legend.get_texts()[4].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
 
 
+def ext_est_std(obs, var_pair, traj_cols=['replicate'], ext_bins='auto'):
+    fig, ax = plt.subplots(
+            figsize=figure_size['full column'],
+            constrained_layout=True
+        )
+
+    legend_entries = {
+        var.name: [mpl.patches.Patch(alpha=0, label=var.pretty_name)]
+        for var in var_pair
+    }
+    T = obs.window_size.max()
+    t = np.linspace(0, T, 101)
+    for var in var_pair:
+        line, = ax.plot(t, var.cdf(t), ls=var.linestyle,
+                        c='k', label=f'True $F_X(t)$')
+        legend_entries[var.name].append(line)
+
+        interior = obs.loc[
+            (obs['state'] == var.name) & (obs['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        exterior = obs.loc[
+                (obs['state'] == var.name)
+                & (obs['wait_type'] != 'interior')
+                & (obs['wait_type'] != 'full exterior'),
+                ['wait_time', 'window_size']
+        ].copy()
+        window_sizes = obs.groupby(traj_cols)['window_size'].first().values
+        # now sorted
+        window_sizes, window_cdf = stats.ecdf(window_sizes)
+        window_sf = 1 - window_cdf
+        all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
+            exterior.wait_time.values,
+            interior.wait_time.values,
+            interior.window_size.values
+        )
+
+        N_ext = len(exterior.wait_time)
+        y, t_bins = np.histogram(
+            exterior.wait_time.values,
+            bins=ext_bins
+        )
+        bin_centers = (t_bins[:-1] + t_bins[1:]) / 2
+        Z_hist = np.sum(y*np.diff(t_bins))
+
+        hist_vals = (1 - y/Z_hist/Z_X)
+        # standard error of mean, Normal approximation.
+        hist_sigma = np.sqrt(y)/Z_hist/Z_X
+
+        line, = ax.plot(bin_centers, hist_vals, c=var.color,
+                    label='Exterior CDF estimate')
+        legend_entries[var.name].append(line)
+        fill = ax.fill_between(
+            bin_centers,
+            hist_vals + 2*hist_sigma,
+            hist_vals - 2*hist_sigma,
+            facecolor=var.color,
+            edgecolor=None,
+            alpha=0.5,
+            label=r'$\pm2\sigma$'
+        )
+        legend_entries[var.name].append(fill)
+
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([-0.1, 1.1])
+    handles = [h for _, patches in legend_entries.items() for h in patches]
+    legend = ax.legend(handles=handles, ncol=2, columnspacing=0.5,
+                    handler_map={StairLine: StairLineHandler()})
+
+    # hack to left-align my "fake" legend column "titles"
+    for vpack in legend._legend_handle_box.get_children():
+        for hpack in vpack.get_children()[:1]:
+            hpack.get_children()[0].set_width(0)
+    # even after the hack, need to move them over to "look" nice
+    legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+    legend.get_texts()[4].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+
+
+
 def final_cdf_comparison(obs, var_pair, traj_cols=['replicate'], **kwargs):
     fig, ax = plt.subplots(
         figsize=figure_size['full column'],

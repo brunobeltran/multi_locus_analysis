@@ -1,8 +1,11 @@
+from multiprocessing import Pool, cpu_count
+
 import numpy as np
 import pandas as pd
 
 import bruno_util
 import bruno_util.random
+from .. import stats
 
 
 @bruno_util.random.strong_default_seed
@@ -222,3 +225,73 @@ def ab_window(rands, window_size, offset, num_replicates=1, states=[0, 1],
     df['window_start'] = 0
     df['window_end'] = window_size
     return df
+
+def _boot_int_i(N_var_T):
+    import multi_locus_analysis.finite_window as fw
+    N_traj_per_boot, var_pair, err_t = N_var_T
+    T = np.max(err_t)
+    var_pair = {name: var for name, var in var_pair}
+    sim = ab_window(
+        [var.rvs for _, var in var_pair.items()],
+        offset=-100*np.sum([var.mean() for _, var in var_pair.items()]),
+        window_size=T,
+        num_replicates=N_traj_per_boot,
+        states=[name for name in var_pair]
+    )
+    obs = fw.sim_to_obs(sim)
+    res = {}
+    for name, var in var_pair.items():
+        interior = obs.loc[
+            (obs['state'] == name) & (obs['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        exterior = obs.loc[
+                (obs['state'] == name)
+                & (obs['wait_type'] != 'interior')
+                & (obs['wait_type'] != 'full exterior'),
+                ['wait_time', 'window_size']
+        ].copy()
+        window_sizes = obs.groupby('replicate')['window_size'].first().values
+        # now sorted
+        window_sizes, window_cdf = stats.ecdf(window_sizes)
+        window_sf = 1 - window_cdf
+        all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
+            exterior.wait_time.values,
+            interior.wait_time.values,
+            interior.window_size.values
+        )
+        res[name] = np.interp(err_t, all_times, var.cdf(all_times) - cdf_int*F_T)
+    return res
+
+
+def bootstrap_int_error(var_pair, T, N_boot=1000, N_traj_per_boot=1000,
+                        N_err_t=101):
+
+    err_t = np.linspace(0, T, 101)
+    err_ave = {var.name: np.zeros_like(err_t) for var in var_pair}
+    err_std = {var.name: np.zeros_like(err_t) for var in var_pair}
+
+    def accumulate_ave_std(res):
+        accumulate_ave_std.N += 1
+        for name in res:
+            delta = res[name] - err_ave[name]
+            err_ave[name] += delta/accumulate_ave_std.N
+            err_std[name] += delta*(res[name] - err_ave[name])
+    accumulate_ave_std.N = 0
+
+    pickleable_var_pair = tuple((var.name, var.rv) for var in var_pair)
+
+    with Pool(processes=cpu_count()) as pool:
+        lazy_res = [
+            pool.apply_async(
+                _boot_int_i,
+                ((N_traj_per_boot, pickleable_var_pair, err_t), )
+            )
+            for i in range(N_boot)
+        ]
+        for res in lazy_res:
+            accumulate_ave_std(res.get())
+    for name in err_std:
+        err_std[name] /= accumulate_ave_std.N - 1
+
+    return err_t, err_ave, err_std
