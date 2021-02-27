@@ -5,6 +5,8 @@ import scipy.optimize
 
 from ..stats import ecdf
 
+def ecdf_combined(*args, **kwargs):
+    pass
 
 def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
                  times_allowed=None, pad_left_at_x=0):
