@@ -5,8 +5,37 @@ import scipy.optimize
 
 from ..stats import ecdf
 
-def ecdf_combined(*args, **kwargs):
-    pass
+def ecdf_combined(exterior, interior, window_sizes, ext_bins='auto', **kwargs):
+
+    all_times, cdf_int, cdf_ext, Z_X, F_T = ecdf_ext_int(
+        exterior, interior, window_sizes, **kwargs
+    )
+
+    N_ext = len(exterior)
+    y, t_bins = np.histogram(exterior, bins=ext_bins)
+    bin_centers = (t_bins[:-1] + t_bins[1:]) / 2
+    Z_hist = np.sum(y*np.diff(t_bins))
+    # exterior estimator
+    ext_est = (1 - y/Z_hist/Z_X)
+    # standard error of mean, Normal approximation.
+    ext_var = y / (Z_hist*Z_X)**2
+    ext_weight = 1/ext_var
+    # interior estimator
+    int_est = np.interp(bin_centers, all_times, cdf_int*F_T)
+    # Dvoretzky-Kiefer-Wolfowitz lower bound on the error at
+    # confidence level alpha
+    alpha = 0.32  # to match 1 sigma (std dev)
+    N_int = len(interior)
+    int_var = 1/(2*N_int) * np.log(2/alpha)
+    int_weight = 1/int_var
+
+    # final estimate is just the weighted average
+    final_est = (
+        int_est*int_weight + ext_est*ext_weight
+    ) / (
+        int_weight + ext_weight
+    )
+    return bin_centers, final_est
 
 def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
                  times_allowed=None, pad_left_at_x=0):

@@ -8,6 +8,7 @@ import lifelines
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import scipy
 import seaborn as sns
 
@@ -758,3 +759,210 @@ def final_cdf_comparison(obs, var_pair, traj_cols=['replicate'], **kwargs):
     # even after the hack, need to move them over to "look" nice
     legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
     legend.get_texts()[4].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+
+
+def final_cdf_comparison(obs, var_pair, traj_cols=['replicate'], ext_bins='auto'):
+    fig, ax = plt.subplots(
+            figsize=figure_size['full column'],
+            constrained_layout=True
+        )
+
+    legend_entries = {
+        var.name: [mpl.patches.Patch(alpha=0, label=var.pretty_name)]
+        for var in var_pair
+    }
+    T = obs.window_size.max()
+    t = np.linspace(0, T, 101)
+    for var in var_pair:
+        line, = ax.plot(t, var.cdf(t), ls=var.linestyle,
+                        c='k', label=f'True $F_X(t)$')
+        legend_entries[var.name].append(line)
+
+        interior = obs.loc[
+            (obs['state'] == var.name) & (obs['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        exterior = obs.loc[
+                (obs['state'] == var.name)
+                & (obs['wait_type'] != 'interior')
+                & (obs['wait_type'] != 'full exterior'),
+                ['wait_time', 'window_size']
+        ].copy()
+        window_sizes = obs.groupby(traj_cols)['window_size'].first().values
+        # now sorted
+        window_sizes, window_cdf = stats.ecdf(window_sizes, pad_left_at_x=0)
+        window_sf = 1 - window_cdf
+        bin_centers, final_est = fw.ecdf_combined(
+            exterior.wait_time.values, interior.wait_time.values,
+            interior.window_size.values, window_sf=window_sf
+        )
+        line, = ax.plot(bin_centers, final_est, c=var.color,
+                        label='Combined estimator', alpha=0.8)
+        legend_entries[var.name].append(line)
+
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([-0.1, 1.1])
+    handles = [h for _, patches in legend_entries.items() for h in patches]
+    legend = ax.legend(handles=handles, ncol=2, columnspacing=0.5)
+
+    # hack to left-align my "fake" legend column "titles"
+    for vpack in legend._legend_handle_box.get_children():
+        for hpack in vpack.get_children()[:1]:
+            hpack.get_children()[0].set_width(0)
+    # even after the hack, need to move them over to "look" nice
+    legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+    legend.get_texts()[3].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+
+def _multi_t_waits(var_pair, window_size, N_traj):
+    # generate same distribution, but with three different window sizes
+    het_trajs = [
+        fw.ab_window(
+            [var.rvs for var in var_pair],
+            window_size=window,
+            offset=-100*np.sum([var.mean() for var in var_pair]),
+            num_replicates=N_traj,
+            states=[var.name for var in var_pair]
+        )
+        for window in np.array([1/2, 1, 2])*window_size
+    ]
+    het_trajs = pd.concat(het_trajs, ignore_index=True)
+
+    multi_T_waits = fw.sim_to_obs(
+        het_trajs, traj_cols=['window_end', 'replicate']
+    )
+    window_sizes, window_cumulant = stats.ecdf(
+        multi_T_waits \
+            .groupby(['window_end', 'replicate'])['window_size'] \
+            .first().values,
+        pad_left_at_x=0
+    )
+    window_sf = 1 - window_cumulant
+    return multi_T_waits, window_sf
+
+
+def _correct_multi_window_pdf(var_pair, multi_T_waits):
+    fig, ax = plt.subplots(
+        figsize=figure_size['full column'],
+        constrained_layout=True
+    )
+
+    legend_entries = {var.name: [mpl.patches.Patch(alpha=0, label=var.pretty_name)]
+                    for var in var_pair}
+    T = multi_T_waits.window_size.max()
+    ylim = np.max([var.scaled_ylim(T) for var in var_pair])
+    # get fraction of windows that are at *least* of each width
+    window_sizes, window_cumulant = fw.ecdf(
+        multi_T_waits.groupby(['window_end', 'replicate'])['window_size'].first().values,
+        pad_left_at_x=0
+    )
+    window_frac_at_least = 1 - window_cumulant
+    for var in var_pair:
+        t = np.linspace(0, T, 100)
+
+        line, = ax.plot(t, var.pdf(t)/var.cdf(T), ls=var.linestyle,
+                        c='k', label=f'$f_X(t)/F_X(T)$')
+        legend_entries[var.name].append(line)
+
+        interior = multi_T_waits.loc[
+            (multi_T_waits['state'] == var.name) & (multi_T_waits['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        # for each observed time, we can get number of windows in which it can have been observed
+        window_i = np.searchsorted(window_sizes, interior.wait_time) - 1
+        frac_trajs_observable = window_frac_at_least[window_i]
+        interior['correction'] = 1 / frac_trajs_observable / (interior.window_size - interior.wait_time)
+
+        t_bins = np.linspace(0, T, 51)
+        dt = np.diff(t_bins)
+        y, t_bins = np.histogram(
+            interior.wait_time.values,
+            weights=interior.correction / np.sum(interior.correction),
+            bins=t_bins
+        )
+        y = y / dt
+        X, Y = stats.bars_given_hist(y, t_bins)
+        line, = ax.plot(X, Y, c=var.color, label='Incorrect\nInterior PDF')
+        legend_entries[var.name].append(line)
+
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([0, ylim])
+    handles = [h for _, patches in legend_entries.items() for h in patches]
+    legend = ax.legend(handles=handles, ncol=1, loc='upper right')
+
+# hack to left-align my "fake" legend column "titles"
+    for vpack in legend._legend_handle_box.get_children():
+        for i in [0, 3]:
+            hpack = vpack.get_children()[i]
+            hpack.get_children()[0].set_width(0)
+# even after the hack, need to move them over to "look" nice
+    legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+    legend.get_texts()[3].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+
+    return fig
+
+
+def _incorrect_multi_window_pdf(var_pair, multi_T_waits):
+    fig, ax = plt.subplots(
+        figsize=figure_size['full column'],
+        constrained_layout=True
+    )
+
+    legend_entries = {var.name: [mpl.patches.Patch(alpha=0, label=var.pretty_name)]
+                    for var in var_pair}
+    T = multi_T_waits.window_size.max()
+    ylim = np.max([var.scaled_ylim(T) for var in var_pair])
+    for var in var_pair:
+        t = np.linspace(0, T, 100)
+
+        line, = ax.plot(t, var.pdf(t)/var.cdf(T), ls=var.linestyle,
+                        c='k', label=f'$f_X(t)/F_X(T)$')
+        legend_entries[var.name].append(line)
+
+        interior = multi_T_waits.loc[
+            (multi_T_waits['state'] == var.name) & (multi_T_waits['wait_type'] == 'interior'),
+            ['wait_time', 'window_size']
+        ].copy()
+        interior['correction'] = 1/(interior.window_size - interior.wait_time)
+
+        t_bins = np.linspace(0, T, 51)
+        dt = np.diff(t_bins)
+        y, t_bins = np.histogram(
+            interior.wait_time.values,
+            weights=interior.correction / np.sum(interior.correction),
+            bins=t_bins
+        )
+        y = y / dt
+        X, Y = stats.bars_given_hist(y, t_bins)
+        line, = ax.plot(X, Y, c=var.color, label='Corrected\nInterior PDF')
+        legend_entries[var.name].append(line)
+
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([0, ylim])
+    handles = [h for _, patches in legend_entries.items() for h in patches]
+    legend = ax.legend(handles=handles, ncol=1, loc='upper right')
+
+# hack to left-align my "fake" legend column "titles"
+    for vpack in legend._legend_handle_box.get_children():
+        for i in [0, 3]:
+            hpack = vpack.get_children()[i]
+            hpack.get_children()[0].set_width(0)
+# even after the hack, need to move them over to "look" nice
+    legend.get_texts()[0].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+    legend.get_texts()[3].set_position((-40/600*mpl.rcParams['figure.dpi'], 0))
+
+    return fig
+
+
+def multi_window_demo(var_pair, window_size, N_traj=30_000):
+
+    multi_T_waits, _ = _multi_t_waits(var_pair, window_size, N_traj)
+    fig1 = _correct_multi_window_pdf(var_pair, multi_T_waits)
+    fig2 = _incorrect_multi_window_pdf(var_pair, multi_T_waits)
+    return fig1, fig2
+
