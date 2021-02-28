@@ -5,7 +5,7 @@ import pandas as pd
 
 import bruno_util
 import bruno_util.random
-from .. import stats
+from .. import stats as _mla_stats
 
 
 @bruno_util.random.strong_default_seed
@@ -253,7 +253,7 @@ def _boot_int_i(N_var_T):
         ].copy()
         window_sizes = obs.groupby('replicate')['window_size'].first().values
         # now sorted
-        window_sizes, window_cdf = stats.ecdf(window_sizes)
+        window_sizes, window_cdf = _mla_stats.ecdf(window_sizes)
         window_sf = 1 - window_cdf
         all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
             exterior.wait_time.values,

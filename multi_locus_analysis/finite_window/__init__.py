@@ -64,3 +64,4 @@ by Beltran and Spakowitz.
 from .simulation import *
 from .munging import *
 from .stats import *
+from .stats import _ccdf_int

@@ -5,13 +5,20 @@ import scipy.optimize
 
 from ..stats import ecdf
 
+
+def window_sf(obs, traj_cols):
+    window_sizes = obs.groupby(traj_cols)['window_size'].first().values
+    # now sorted
+    window_sizes, window_cdf = ecdf(window_sizes, pad_left_at_x=0)
+    return 1 - window_cdf
+
+
 def ecdf_combined(exterior, interior, window_sizes, ext_bins='auto', **kwargs):
 
     all_times, cdf_int, cdf_ext, Z_X, F_T = ecdf_ext_int(
         exterior, interior, window_sizes, **kwargs
     )
 
-    N_ext = len(exterior)
     y, t_bins = np.histogram(exterior, bins=ext_bins)
     bin_centers = (t_bins[:-1] + t_bins[1:]) / 2
     Z_hist = np.sum(y*np.diff(t_bins))
@@ -37,6 +44,15 @@ def ecdf_combined(exterior, interior, window_sizes, ext_bins='auto', **kwargs):
     )
     return bin_centers, final_est
 
+
+def _ccdf_int(x_int, cdf_int):
+    if not np.isclose(cdf_int[0], 0):
+        raise ValueError("Need to integrate interior CDF, but values start >0")
+    ccdf_int = np.zeros_like(cdf_int)
+    ccdf_int[1:] = np.cumsum(cdf_int[1:] * np.diff(x_int))
+    return ccdf_int
+
+
 def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
                  times_allowed=None, pad_left_at_x=0):
     if len(exterior) < 5 or len(interior) < 5:
@@ -48,9 +64,8 @@ def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
         interior, window_sizes, window_sf, times_allowed,
         pad_left_at_x=pad_left_at_x,
     )
-    # now compute integral of CDF w.r.t. t
-    ccdf_int = np.zeros_like(cdf_int)
-    ccdf_int[1:] = np.cumsum(cdf_int[1:] * np.diff(x_int))
+    # integral of CDF w.r.t. t
+    ccdf_int = _ccdf_int(x_int, cdf_int)
 
     if times_allowed is None:
         times_allowed = np.sort(np.concatenate((x_int, x_ext)))
@@ -144,15 +159,6 @@ def ecdf_windowed(
     else:
         x = np.unique(y)
     x.sort()
-    if auto_pad_left:
-        dx = np.mean(np.diff(x))
-        x = np.insert(x, 0, x[0] - dx)
-    elif pad_left_at_x is not None:
-        if x[0] <= pad_left_at_x:
-            warnings.warn('pad_left_at_x not left of x in ecdf_windowed! '
-                          'Ignoring...')
-        else:
-            x = np.insert(x, 0, pad_left_at_x)
 
     num_obs = len(y)
     cdf = np.zeros(x.shape, dtype=np.dtype('float'))
@@ -179,6 +185,17 @@ def ecdf_windowed(
         cdf[xi] = full_cdf[i]
     if normalize:
         cdf = cdf/full_cdf[-1]
+    if auto_pad_left or pad_left_at_x is not None:
+        cdf = np.insert(cdf, 0, 0)
+    if auto_pad_left:
+        dx = np.mean(np.diff(x))
+        x = np.insert(x, 0, x[0] - dx)
+    elif pad_left_at_x is not None:
+        if x[0] <= pad_left_at_x:
+            warnings.warn('pad_left_at_x not left of x in ecdf_windowed! '
+                          'Ignoring...')
+        else:
+            x = np.insert(x, 0, pad_left_at_x)
     return x, cdf
 
 
