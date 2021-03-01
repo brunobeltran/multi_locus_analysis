@@ -406,6 +406,64 @@ def corrected_interior_ecdf(obs, var_pair):
     _legend_from_entries(ax, legend_entries)
 
 
+def discrete_exterior_est(obs, var_pair, times_allowed):
+    fig, ax = plt.subplots(
+        figsize=figure_size['full column'],
+        constrained_layout=True
+    )
+    legend_entries = _init_entries(var_pair)
+    T = obs.window_size.max()
+    t = np.linspace(0, T, 101)
+    for var in var_pair:
+        exterior = _ext_from_obs(obs, var.name)
+        ext_bins = times_allowed[1:] - np.diff(times_allowed)/2
+        y, t_bins = np.histogram(exterior, bins=ext_bins, density=1)
+        X, Y = stats.bars_given_hist(y, t_bins)
+        X -= np.diff(times_allowed)/2
+        line, = ax.plot(X, Y, c=var.color, label='Exterior Histogram')
+        legend_entries[var.name].append(line)
+
+        scale = T - scipy.integrate.quad(var.cdf, 0, T)[0]
+        line, = ax.plot(t, var.sf(t)/scale, c='k', ls=var.linestyle,
+                        label='Rescaled\nsurvival function')
+        legend_entries[var.name].append(line)
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{exterior} = t)$')
+    ax.set_xlim([0, T])
+    ax.set_ylim([0, ax.get_ylim()[1]])
+    _legend_from_entries(ax, legend_entries)
+
+
+def discrete_bars_from_cdf(obs, var_pair, times_allowed):
+    fig, ax = plt.subplots(
+        figsize=figure_size['full column'],
+        constrained_layout=True
+    )
+    legend_entries = _init_entries(var_pair)
+    T = obs.window_size.max()
+    t = np.linspace(0, T, 100)
+    for var in var_pair:
+        interior, window_sizes = _int_win_from_obs(obs, var.name)
+        x, cdf = fw.ecdf_windowed(interior, window_sizes,
+                                  times_allowed=times_allowed)
+
+        X, Y = stats.bars_given_discrete_cdf(x, cdf)
+        line, = ax.plot(t, var.pdf(t), ls=var.linestyle,
+                        c='0.5', label=r'$F_X(t)$')
+        legend_entries[var.name].append(line)
+        line, = ax.plot(X, Y, c=var.color, label='Corrected\nInterior PDF')
+        legend_entries[var.name].append(line)
+        line, = ax.plot(t, var.pdf(t)/var.cdf(T), c='k', ls=var.linestyle,
+                        label=r'$F_X(t)/F_X(T)$')
+        legend_entries[var.name].append(line)
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ylim = np.max([var.scaled_ylim(T) for var in var_pair])
+    ax.set_ylim([0, ylim])
+    _legend_from_entries(ax, legend_entries)
+
+
 def scaling_normalizers(obs, var_pair):
     fig, ax = plt.subplots(
         figsize=figure_size['full column'],
@@ -510,7 +568,7 @@ def fully_corrected_interior_pdf(obs, var_pair, traj_cols=['replicate'],
 
 
 def int_ext_cdf_comparison(obs, var_pair, traj_cols=['replicate'],
-                           ext_bins='auto'):
+                           ext_bins='auto', **kwargs):
     fig, ax = plt.subplots(
         figsize=figure_size['full column'],
         constrained_layout=True
@@ -523,7 +581,8 @@ def int_ext_cdf_comparison(obs, var_pair, traj_cols=['replicate'],
         exterior = _ext_from_obs(obs, var.name)
         interior, window_sizes = _int_win_from_obs(obs, var.name)
         all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
-            exterior, interior, window_sizes, window_sf=window_sf
+            exterior, interior, window_sizes, window_sf=window_sf,
+            **kwargs
         )
         y, t_bins = np.histogram(exterior, bins=ext_bins, density=1)
         X, Y = stats.bars_given_hist(y, t_bins)

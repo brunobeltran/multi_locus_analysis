@@ -9,6 +9,7 @@ bootstrapping, etc., as well as various miscellaneous distributional tools like
 normality tests.
 """
 from functools import partial
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -64,7 +65,12 @@ def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
         dx = np.mean(np.diff(x))
         x = np.insert(x, 0, x[0] - dx)
     elif pad_left_at_x is not None:
-        x = np.insert(x, 0, pad_left_at_x)
+        if not np.isclose(pad_left_at_x, x[0]):
+            if x[0] < pad_left_at_x:
+                warnings.warn('pad_left_at_x not left of x in ecdf_windowed! '
+                              'Ignoring...')
+            else:
+                x = np.insert(x, 0, pad_left_at_x)
     num_obs = len(y)
     cdf = np.zeros(x.shape, dtype=np.dtype('float'))
     i = 0

@@ -1,23 +1,68 @@
-from multi_locus_analysis import finite_window as fw
+import numpy as np
 import pandas as pd
 import pytest
-import numpy as np
+from scipy.stats import beta
+
+from multi_locus_analysis import finite_window as fw
+
+
+# for Beta distributions, making the window size a little less than 1
+# guarantees there's not too many, and also not too few waits per
+# trajectory, so that the effect we want to show is visible
+example_window = 0.8
+wait_vars = [beta(5, 2), beta(2, 2)]
+
+
+def is_close_or_both_nan(x, y):
+    return np.isclose(x, y) | (np.isnan(x) & np.isnan(y))
 
 
 def is_equal_or_both_nan(x, y):
     return np.all((x == y) | (np.isnan(x) & np.isnan(y)))
 
 
-def test_old_v_new_obs_to_sim():
-    from scipy.stats import beta
+def test_old_v_new_sim_to_frame_obs(N_traj=1000):
+    # the old method doesn't work in the multi-window case. We've tested the
+    # new method by eye, but no automated tests yet
+    sim = fw.ab_window(
+        [var.rvs for var in wait_vars],
+        window_size=example_window,
+        offset=-100*np.sum([var.mean() for var in wait_vars]),
+        num_replicates=N_traj,
+        states=['A', 'B'],
+    )
+    traj_cols = ['replicate']
 
-    # for Beta distributions, making the window size a little less than 1
-    # guarantees there's not too many, and also not too few waits per
-    # trajectory, so that the effect we want to show is visible
-    example_window = 0.8
-    wait_vars = [beta(5, 2), beta(2, 2)]
-    N_traj = 1_000
+    # first use old method for getting discrete frames, very involved
+    T = sim.window_end.max()
+    movie_frame_t = np.linspace(0, T, 21)
+    movies = sim.groupby(traj_cols).apply(
+        fw.traj_to_movie,
+        times=movie_frame_t
+    )
+    movies = movies.T.unstack()
+    movies.name = 'state'
+    old_obs = pd.DataFrame(movies) \
+        .reset_index() \
+        .groupby(traj_cols) \
+        .apply(fw.movie_to_waits)
 
+    # now new method, much happier
+    frames = fw.munging.simulation_to_frame_times(sim, movie_frame_t, traj_cols=traj_cols)
+    new_obs = fw.sim_to_obs(frames.reset_index(), traj_cols=traj_cols)
+
+    # now make the index match for easy comparison
+    new_obs = new_obs.reset_index()
+    new_obs['rank_order'] -= 1
+    new_obs = new_obs.set_index(traj_cols + ['rank_order'])
+
+    assert np.all(np.isclose(
+        0, np.abs(new_obs['wait_time'] - old_obs['wait_time']) > 0
+    ))
+
+
+def test_old_v_new_obs_to_sim(N_traj=1000):
+    # test the full multi-window case
     het_trajs = [
         fw.ab_window(
             [var.rvs for var in wait_vars],
@@ -28,16 +73,15 @@ def test_old_v_new_obs_to_sim():
         )
         for window in np.array([1/2, 1, 2])*example_window
     ]
-    het_trajs = pd.concat(het_trajs, ignore_index=True)
-    multi_T_waits = fw.sim_to_obs(
-        het_trajs, traj_cols=['window_end', 'replicate']
-    )
+    sim = pd.concat(het_trajs, ignore_index=True)
+    traj_cols = ['window_end', 'replicate']
+    multi_T_waits = fw.sim_to_obs(sim, traj_cols=traj_cols)
     with pytest.deprecated_call():
-        multi_T_waits_old = het_trajs \
-            .groupby(['window_end', 'replicate']) \
+        multi_T_waits_old = sim \
+            .groupby(traj_cols) \
             .apply(fw.traj_to_waits)
-    del multi_T_waits_old['replicate']
-    del multi_T_waits_old['window_end']
+    for col in traj_cols:
+        del multi_T_waits_old[col]
 
     assert np.all(
         multi_T_waits.reset_index()['rank_order']

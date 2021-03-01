@@ -93,7 +93,8 @@ def ecdf_ext_int(exterior, interior, window_sizes, window_sf=None,
 
 def ecdf_windowed(
         times, window_sizes, window_sf=None, times_allowed=None,
-        auto_pad_left=None, pad_left_at_x=0, normalize=True):
+        auto_pad_left=None, pad_left_at_x=0, normalize=True,
+        skip_times_allowed_check=False):
     """
     Empirical cumulative distribution for windowed observations.
 
@@ -138,65 +139,98 @@ def ecdf_windowed(
     -----
     If using ``times_allowed``, the *pad_left* parameters are redundant.
     """
-    # set up y (values to hist) ymax (windows) and x (bins)
-    # well, the eCDF equivalents, not actually a hist...
-    y = times
-    ymax = window_sizes
-    y = np.array(y)
-    ymax = np.array(ymax)
-    # variables only needed for multiple window sizes
+    times = np.array(times)
+    window_sizes = np.array(window_sizes)
+    if times_allowed is not None and not skip_times_allowed_check:
+        # again, not many resources in numpy for dealing with sorted arrays, so
+        # we can't just take advantage of that and do it later...
+        close_to_allowed = np.any(
+            np.isclose(times[None, :], times_allowed[:, None]),
+            axis=0  # one for each in times
+        )
+        if not np.all(close_to_allowed):
+            # you'd have to modify the core algorithm to allow things to not
+            # compare is_close
+            raise ValueError("times_allowed passed does not contain all "
+                             "elements of times passed (not np.is_close).")
+    # unique doesn't take advantage of sorting anyway, so just do this here
+    times_allowed = np.unique(times) \
+        if times_allowed is None else np.array(times_allowed)
+    times_allowed.sort()
+    # flags only needed for multiple window sizes
     ignore_window_sf = False
-    uniq_ymax = None
     # allow providing single window size
-    if ymax.size == 1:
+    if window_sizes.size == 1:
+        # and skip the extra pass where we calculate window_sf in that case
         ignore_window_sf = True
-        ymax = ymax*np.ones_like(y)
-    i = np.argsort(y)
-    y = y[i]
-    ymax = ymax[i]
-    if times_allowed is not None:
-        x = np.unique(times_allowed)
-    else:
-        x = np.unique(y)
-    x.sort()
+        window_sizes = window_sizes*np.ones_like(times)
+    # algorithm is basically to sort then count, as in mla.stats.ecdf, but with
+    # weights
+    i = np.argsort(times)
+    times = times[i]
+    window_sizes = window_sizes[i]
+    if auto_pad_left:
+        dx = np.mean(np.diff(times_allowed))
+        times_allowed = np.insert(times_allowed, 0, times_allowed[0] - dx)
+    elif pad_left_at_x is not None:
+        if not np.isclose(times_allowed[0], pad_left_at_x):
+            if times_allowed[0] < pad_left_at_x:
+                warnings.warn('pad_left_at_x not left of x in ecdf_windowed! '
+                              'Ignoring...')
+            else:
+                times_allowed = np.insert(times_allowed, 0, pad_left_at_x)
 
-    num_obs = len(y)
-    cdf = np.zeros(x.shape, dtype=np.dtype('float'))
-    if not ignore_window_sf and window_sf is None:
-        # get fraction of windows that are at *least* of each width
-        uniq_ymax, window_ecdf = ecdf(ymax, pad_left_at_x=0)
-        window_sf = 1 - window_ecdf
-    weights = (ymax - y)
+    # base weights due to interior censoring
+    weights = (window_sizes - times)
     if not ignore_window_sf:
+        if window_sf is None:
+            # get fraction of windows that are at *least* of each width
+            traj_window, window_ecdf = ecdf(window_sizes, pad_left_at_x=0)
+            window_sf = 1 - window_ecdf
+        else:
+            # make sure to pad_left_at_x=0
+            traj_window = np.insert(np.unique(window_sizes), 0, 0)
+            if not np.isclose(window_sf[0], 1.0):
+                raise ValueError("window_sf must be pad_left_at_x=0.")
         # for each observed time, we can get number of windows in which it can
         # have been observed
-        if uniq_ymax is None:
-            # don't forget to pad_left_at_x=0
-            uniq_ymax = np.insert(np.unique(ymax), 0, 0)
         # minus 1 because of how searchsorted returns indices
-        window_i = np.searchsorted(uniq_ymax, y) - 1
-        frac_trajs_observable = window_sf[window_i]
-        weights = weights*frac_trajs_observable
-    full_cdf = np.cumsum(1/weights)  # before repeats removed
+        window_i = np.searchsorted(traj_window, times) - 1
+        # scale by fraction of trajectories where each time was observable
+        weights = weights*window_sf[window_i]
+    # TODO probably numba compile just this for loop
     i = 0
-    for xi, xx in enumerate(x):
-        while i + 1 < num_obs and np.isclose(y[i+1], xx):
+    num_obs = len(times)
+    # weight contributed by each time. need to simply combine weights due to
+    # "isclose" times to get final cdf output.
+    full_cdf = np.cumsum(1/weights)
+    # we loop over the allowed times instead of full_cdf itself so that we can
+    # catch "empty" buckets, introduced either by times_allowed or pad_left*
+    cdf = np.zeros(times_allowed.shape, dtype=np.dtype('float'))
+    for cdf_i, t in enumerate(times_allowed):
+        # if the times_allowed extend beyond any observations, just pad out the
+        # result in a vectorized way
+        if i >= num_obs - 1:
+            cdf[cdf_i:] = full_cdf[-1]
+            break
+        # this triggers both if t is smaller than any observation (i == 0), or
+        # if this particular cdf_i should have the same value as the previous
+        # one (because there are no observations in this bucket)
+        if times[i] > t and not np.isclose(times[i], t):
+            if i == 0:
+                # we're already zero-initialized
+                continue
+            # otherwise, just use the previous value, since there's guaranteed
+            # to be at least one if we've already advanced i
+            cdf[cdf_i] = cdf[cdf_i - 1]
+        # otherwise, there is some amount of weight in this bucket. advance i
+        # until we've counted all the weight
+        while i + 1 < num_obs and np.isclose(times[i+1], t):
             i += 1
-        cdf[xi] = full_cdf[i]
+        cdf[cdf_i] = full_cdf[i]
     if normalize:
-        cdf = cdf/full_cdf[-1]
-    if auto_pad_left or pad_left_at_x is not None:
-        cdf = np.insert(cdf, 0, 0)
-    if auto_pad_left:
-        dx = np.mean(np.diff(x))
-        x = np.insert(x, 0, x[0] - dx)
-    elif pad_left_at_x is not None:
-        if x[0] <= pad_left_at_x:
-            warnings.warn('pad_left_at_x not left of x in ecdf_windowed! '
-                          'Ignoring...')
-        else:
-            x = np.insert(x, 0, pad_left_at_x)
-    return x, cdf
+        cdf = cdf/cdf[-1]
+    return times_allowed, cdf
 
 
 def ecdf_simple(waits, T, pad_left_at_x=0):

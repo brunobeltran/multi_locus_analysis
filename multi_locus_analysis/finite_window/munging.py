@@ -208,6 +208,136 @@ def state_changes_to_movie_frames(
     return movie
 
 
+def simulation_to_frame_times(simulation, t, traj_cols=['replicate']):
+    """
+    Vectorized conversion into frames, using np.searchsorted.
+
+    Getting what "frames" each transition happened on is pretty easy. Consider
+    the example trajectory with ``window_start=1.2``, ``window_end=2.9``, and
+    transition times:
+
+        >>> transitions = [0.9, 1.5, 1.7, 2.5, 3.1]
+
+    with possible frames:
+
+        >>> frames = [0, 1, 2, 3, 4, 5, 6]
+
+    It may seem that by definition, we can only observe the transitions between
+    *window_start* and *window_end*, however, this is not actually true here,
+    because the stationary, "continuous" Markov renewal process that we've
+    generated using the `fw.simulation` functions is valid from the "true"
+    start of the left exterior time to the "true" end of the right exterior
+    time, even if we normally discard these times for the purposes of
+    simulating censored statistics. So the discrete movie's window size will
+    just be the number of frames that are in the interval defined by
+    ``[min(transitions), max(transitions)]``.
+
+    Similarly, if instead ``window_end=3.05``, then nothing actually changes,
+    because either way in a discrete movie we directly observe the state at
+    ``t=3``.
+
+    We've got nice strats for extracting the first and last possible frame in a
+    vectorized way. So the algorithm is to first do that. Then, we discard
+    transition times that are beyond our observation frames in either
+    direction, and searchsort the remaining ones into the frames. In the
+    above, that's:
+
+        >>> t_i = [1, 2, 2, 3, 4]
+
+    or equivalently:
+
+        >>> start_t_i = [1, 2, 2, 3]
+
+    and
+
+        >>> end_t_i = [2, 2, 3, 4]
+
+    Now we simply notice that the *last* start time that searchsorts to being
+    before a given frame is going to dictate the state that we observe at that
+    frame. So if the states after each ``start_t_i`` were:
+
+        >>> states = ['A', 'B', 'A', 'B']
+
+    then we will observe states ['A', 'A', 'B'] at frames [1, 2, 3], with no
+    observation at frames 0 or 4, 5 and 6.
+
+    Finally, sometimes there will be multiple state switches between two
+    frames, and yet by chance we end up in the same state as when we started.
+    We must combine these.
+
+    To get the correct output for *every* frame, we would simply have to notice
+    that sometimes a waiting time observation will cover many frames, and add
+    one last step where we simply fill frames not specifically marked by a
+    start time with whatever the state was at the previous frame. We don't do
+    this right now because my thesis is due tomorrow.
+    """
+    sim = simulation
+
+    # First, get the discrete window
+
+    left_lext = sim.groupby(traj_cols)['start_time'].min()
+    start_i = np.searchsorted(t, left_lext)
+    # start times that searchsort past the end means that the entire trajectory
+    # occured *after* all frames were over, so it's unobservable
+    t_rnan = np.append(t, np.nan)
+    leftmost_frame = pd.Series(t_rnan[start_i], index=left_lext.index)
+    right_rext = sim.groupby(traj_cols)['end_time'].max()
+    # normally would be " - 1", but we insert nan at start of t instead
+    # to automagically catch the case that the rightmost wait end searchsorts
+    # left of *all* frames, in which case the trajectory is unobservable
+    end_i = np.searchsorted(t, right_rext)
+    t_lnan = np.insert(t, 0, np.nan)
+    rightmost_frame = pd.Series(t_lnan[end_i], index=right_rext.index)
+
+    # Second, build the frames df
+
+    # exclude useless waits
+    sim = sim[sim['start_time'] < t[-1]]
+    sim = sim[sim['end_time'] > t[0]]
+    states = sim[traj_cols + ['state']].copy()
+    start_times = sim['start_time'].values
+    states['start_i'] = np.searchsorted(t, start_times)
+    frames = states.groupby(traj_cols + ['start_i'])['state'].last()
+    frames = frames.reset_index().set_index(traj_cols)
+    frames['start_time'] = t[frames['start_i'].values]
+    frames['window_start'] = leftmost_frame
+    frames['window_end'] = rightmost_frame
+    # Before adding the end times we need to remove neighboring wait
+    # times that end up corresponding to the same state.
+    # HACK: create a special index that tracks which unique trajectory each
+    # wait time belongs to, then blindly diff state col, and use the new
+    # traj_id col to tell when a lack of diff is due to a redundant wait time
+    # (same state as prev one) and when it's just due to a new trajectory.
+    traj_id = frames.groupby(traj_cols)['start_time'].first() * 0
+    traj_id.iloc[:] = np.arange(len(traj_id))
+    frames['traj_id'] = traj_id
+    # Need to add a single element start to get size match. First wait time by
+    # definition can't be redundant, so add traj_id which will never matches so
+    # it can't get marked as _is_redundant.
+    frames['traj_id2'] = np.insert(frames['traj_id'].values[:-1], 0, -1)
+    states = frames['state'].unique()
+    state_id = np.arange(len(states))
+    state_map = {s: state_id[i] for i, s in enumerate(states)}
+    frames['state_id'] = frames['state'].replace(state_map)
+    # insert, so the *second* of the redundant guys is deleted
+    state_diff = np.insert(np.diff(frames['state_id']), 0, 1)
+    redundant = (state_diff == 0) & (frames['traj_id'] == frames['traj_id2'])
+    frames = frames.loc[~redundant]
+    # Use the same hack as for the redundant guys, but we need the nan on the
+    # other side this time, to match what we'll do to the end time col
+    traj_id = frames.groupby(traj_cols)['start_time'].first() * 0
+    traj_id.iloc[:] = np.arange(len(traj_id))
+    frames['traj_id'] = traj_id
+    frames['traj_id2'] = np.append(frames['traj_id'].values[1:], np.nan)
+    frames['end_time'] = np.append(frames['start_time'].values[1:], np.nan)
+    is_last = frames['traj_id'] != frames['traj_id2']
+    frames.loc[is_last, 'end_time'] = frames.loc[is_last, 'window_end']
+    # get rid of hacky temporary columns
+    del frames['traj_id']
+    del frames['traj_id2']
+
+    return frames
+
 def traj_to_movie(*args, **kwargs):
     "Alias of :func:`.state_changes_to_movie_frames`."
     return state_changes_to_movie_frames(*args, **kwargs)
