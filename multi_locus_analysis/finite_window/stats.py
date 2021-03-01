@@ -1,9 +1,43 @@
 import warnings
 
 import numpy as np
+import pandas as pd
 import scipy.optimize
 
 from ..stats import ecdf
+
+
+def average_lifetime(obs, traj_cols=['replicate']):
+    """
+    Estimate the true means of each state of the process.
+
+    Doesn't require removing any censoring, because the process is stationary.
+    """
+    true_ends = obs[~np.isclose(obs['end_time'], obs['window_size'])]
+    # the number of start times of each state are highly
+    # correlated estimators of the total number of "start times"
+    # of the full process that cycles. we combine them all to
+    # average out edge effects, but don't gain much from it
+    ave_num_ends = true_ends.groupby('state')['end_time'] \
+        .count() \
+        .mean()
+    total_window = obs \
+        .groupby(traj_cols)['window_size'].first() \
+        .sum()
+    total_mean_est = total_window / ave_num_ends
+    # # this also works, but is obviously less robust
+    # start_state = obs.groupby(traj_cols)['state'].first()
+    # start_counts = start_state.value_counts()
+    # mean_est = {
+    #     name: total_mean_est*(count/np.sum(start_counts))
+    #     for name, count in start_counts.items()
+    # }
+    total_state_times = obs.groupby('state')['wait_time'].sum()
+    mean_est = {
+        name: total_mean_est*(time/np.sum(total_state_times))
+        for name, time in total_state_times.items()
+    }
+    return pd.Series(mean_est)
 
 
 def window_sf(obs, traj_cols):
