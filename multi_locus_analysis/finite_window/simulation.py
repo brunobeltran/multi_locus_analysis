@@ -66,7 +66,7 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
     some offset before the window, as in :func:`ab_window`.
     """
     raise NotImplementedError("Currently buggy. Need to fix start time "
-                              "generation.")
+                              "generation, see docstring.")
     # np.concatenate can't handle concatenating nothing into nothing, so...
     if num_replicates <= 0:
         return pd.DataFrame(columns=['replicate', 'state', 'start_time',
@@ -128,7 +128,8 @@ def ab_window_fast(rands, means, window_size, num_replicates=1, states=[0, 1],
 @bruno_util.random.strong_default_seed
 def ab_window(rands, window_size, offset, num_replicates=1, states=[0, 1],
               seed=None, random_state=None):
-    r"""Simulate an asynchronous two-state system from time 0 to `window_size`.
+    r"""
+    Simulate an asynchronous two-state system from time 0 to `window_size`.
 
     Similar to :func:`multi_locus_analysis.finite_window.ab_window_fast`, but
     designed to work when the means of the distributions being used are hard to
@@ -226,8 +227,9 @@ def ab_window(rands, window_size, offset, num_replicates=1, states=[0, 1],
     df['window_end'] = window_size
     return df
 
-def _boot_int_i(N_var_T):
+def _boot_final_est(N_var_T):
     import multi_locus_analysis.finite_window as fw
+    import multi_locus_analysis.plotting.finite_window as fplt
     N_traj_per_boot, var_pair, err_t = N_var_T
     T = np.max(err_t)
     var_pair = {name: var for name, var in var_pair}
@@ -241,26 +243,33 @@ def _boot_int_i(N_var_T):
     obs = fw.sim_to_obs(sim)
     res = {}
     for name, var in var_pair.items():
-        interior = obs.loc[
-            (obs['state'] == name) & (obs['wait_type'] == 'interior'),
-            ['wait_time', 'window_size']
-        ].copy()
-        exterior = obs.loc[
-                (obs['state'] == name)
-                & (obs['wait_type'] != 'interior')
-                & (obs['wait_type'] != 'full exterior'),
-                ['wait_time', 'window_size']
-        ].copy()
-        window_sizes = obs.groupby('replicate')['window_size'].first().values
-        # now sorted
-        window_sizes, window_cdf = _mla_stats.ecdf(window_sizes)
-        window_sf = 1 - window_cdf
-        all_times, cdf_int, cdf_ext, Z_X, F_T = fw.ecdf_ext_int(
-            exterior.wait_time.values,
-            interior.wait_time.values,
-            interior.window_size.values
-        )
-        res[name] = np.interp(err_t, all_times, var.cdf(all_times) - cdf_int*F_T)
+        exterior = fplt._ext_from_obs(obs, name)
+        interior, _ = fplt._int_win_from_obs(obs, name)
+        bin_centers, final_est = fw.ecdf_combined(exterior, interior, T)
+        res[name] = var.cdf(err_t) - np.interp(err_t, bin_centers, final_est)
+    return res
+
+
+def _boot_int_cdf(N_var_T):
+    import multi_locus_analysis.finite_window as fw
+    import multi_locus_analysis.plotting.finite_window as fplt
+    N_traj_per_boot, var_pair, err_t = N_var_T
+    T = np.max(err_t)
+    var_pair = {name: var for name, var in var_pair}
+    sim = ab_window(
+        [var.rvs for _, var in var_pair.items()],
+        offset=-100*np.sum([var.mean() for _, var in var_pair.items()]),
+        window_size=T,
+        num_replicates=N_traj_per_boot,
+        states=[name for name in var_pair]
+    )
+    obs = fw.sim_to_obs(sim)
+    res = {}
+    for name, var in var_pair.items():
+        exterior = fplt._ext_from_obs(obs, name)
+        interior, _ = fplt._int_win_from_obs(obs, name)
+        x, cdf = fw.ecdf_windowed(interior, T)
+        res[name] = var.cdf(err_t)/var.cdf(T) - np.interp(err_t, x, cdf)
     return res
 
 
@@ -268,8 +277,10 @@ def bootstrap_int_error(var_pair, T, N_boot=1000, N_traj_per_boot=1000,
                         N_err_t=101):
 
     err_t = np.linspace(0, T, 101)
+    derr_t = np.diff(err_t)
     err_ave = {var.name: np.zeros_like(err_t) for var in var_pair}
     err_std = {var.name: np.zeros_like(err_t) for var in var_pair}
+    err_l2 = {var.name: 0 for var in var_pair}
 
     def accumulate_ave_std(res):
         accumulate_ave_std.N += 1
@@ -277,6 +288,9 @@ def bootstrap_int_error(var_pair, T, N_boot=1000, N_traj_per_boot=1000,
             delta = res[name] - err_ave[name]
             err_ave[name] += delta/accumulate_ave_std.N
             err_std[name] += delta*(res[name] - err_ave[name])
+            # separately, keep running average of l2 error
+            res_mid = (res[name][1:]**2 + res[name][:-1]**2) / 2
+            err_l2[name] += np.sum(np.sqrt(res_mid * derr_t))
     accumulate_ave_std.N = 0
 
     pickleable_var_pair = tuple((var.name, var.rv) for var in var_pair)
@@ -284,14 +298,17 @@ def bootstrap_int_error(var_pair, T, N_boot=1000, N_traj_per_boot=1000,
     with Pool(processes=cpu_count()) as pool:
         lazy_res = [
             pool.apply_async(
-                _boot_int_i,
+                _boot_int_cdf,
                 ((N_traj_per_boot, pickleable_var_pair, err_t), )
             )
             for i in range(N_boot)
         ]
         for res in lazy_res:
             accumulate_ave_std(res.get())
+    # for i in range(N_boot):
+    #     accumulate_ave_std(_boot_int_i((N_traj_per_boot, pickleable_var_pair,
+    #                                     err_t)))
     for name in err_std:
         err_std[name] /= accumulate_ave_std.N - 1
 
-    return err_t, err_ave, err_std
+    return err_t, err_ave, err_std, err_l2
