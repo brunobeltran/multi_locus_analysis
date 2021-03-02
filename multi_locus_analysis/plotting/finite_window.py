@@ -337,6 +337,8 @@ def exterior_hist(obs, var_pair, ext_bins=51):
     ax.set_ylim([0, ax.get_ylim()[1]])
     _legend_from_entries(ax, legend_entries)
 
+    return fig
+
 
 def corrected_interior_pdf(obs, var_pair, traj_cols=['replicate'],
                            int_bins=51):
@@ -361,9 +363,10 @@ def corrected_interior_pdf(obs, var_pair, traj_cols=['replicate'],
                                  density=1)
         X, Y = stats.bars_given_hist(y, t_bins)
 
-        line, = ax.plot(t, var.pdf(t), ls=var.linestyle,
-                        c='0.5', label=r'$f_X(t)$')
-        legend_entries[var.name].append(line)
+        # # Andy doesn't like having both gray and black lines
+        # line, = ax.plot(t, var.pdf(t), ls=var.linestyle,
+        #                 c='0.5', label=r'$f_X(t)$')
+        # legend_entries[var.name].append(line)
         line, = ax.plot(X, Y, c=var.color, label='Corrected\nInterior PDF')
         legend_entries[var.name].append(line)
         line, = ax.plot(t, var.pdf(t)/var.cdf(T),
@@ -390,9 +393,9 @@ def corrected_interior_ecdf(obs, var_pair):
         interior, window_sizes = _int_win_from_obs(obs, var.name)
         x, cdf = fw.ecdf_windowed(interior, window_sizes, pad_left_at_x=0)
 
-        line, = ax.plot(t, var.cdf(t), ls=var.linestyle,
-                        c='0.5', label=r'$F_X(t)$')
-        legend_entries[var.name].append(line)
+        # line, = ax.plot(t, var.cdf(t), ls=var.linestyle,
+        #                 c='0.5', label=r'$F_X(t)$')
+        # legend_entries[var.name].append(line)
         line, = ax.plot(x, cdf, c=var.color, label='Corrected\nInterior CDF')
         legend_entries[var.name].append(line)
         line, = ax.plot(t, var.cdf(t)/var.cdf(T), c='k', ls=var.linestyle,
@@ -403,6 +406,7 @@ def corrected_interior_ecdf(obs, var_pair):
     ax.set_xlim([0, T])
     ax.set_ylim([0, 1])
     _legend_from_entries(ax, legend_entries)
+    return fig
 
 
 def discrete_exterior_est(obs, var_pair, times_allowed):
@@ -431,6 +435,7 @@ def discrete_exterior_est(obs, var_pair, times_allowed):
     ax.set_xlim([0, T])
     ax.set_ylim([0, ax.get_ylim()[1]])
     _legend_from_entries(ax, legend_entries)
+    return fig
 
 
 def discrete_bars_from_cdf(obs, var_pair, times_allowed):
@@ -461,6 +466,7 @@ def discrete_bars_from_cdf(obs, var_pair, times_allowed):
     ylim = np.max([var.scaled_ylim(T) for var in var_pair])
     ax.set_ylim([0, ylim])
     _legend_from_entries(ax, legend_entries)
+    return fig
 
 
 def scaling_normalizers(obs, var_pair):
@@ -474,7 +480,7 @@ def scaling_normalizers(obs, var_pair):
     cdf_int_to_ext_cdf = {}
     for var in var_pair:
         exterior = _ext_from_obs(obs, var.name)
-        x_ext, cdf_ext = fw.ecdf(exterior.wait_time.values, pad_left_at_x=0)
+        x_ext, cdf_ext = fw.ecdf(exterior, pad_left_at_x=0)
         interior, window_sizes = _int_win_from_obs(obs, var.name)
         x_int, cdf_int = fw.ecdf_windowed(interior, window_sizes,
                                           pad_left_at_x=0)
@@ -590,10 +596,10 @@ def int_ext_cdf_comparison(obs, var_pair, traj_cols=['replicate'],
                         c='k', label='True $F_X(t)$')
         legend_entries[var.name].append(line)
         line, = ax.plot(all_times, cdf_int*F_T, c=var.color, alpha=0.8,
-                        label='Interior CDF estimate')
+                        label='Interior-based')
         legend_entries[var.name].append(line)
         line, = ax.plot(X, 1 - Y/Z_X, c=var.color, alpha=0.8,
-                        label='Exterior CDF estimate')
+                        label='Exterior-based')
         legend_entries[var.name].append(StairLine(line))
     ax.set_xlabel('time')
     ax.set_ylabel(r'$P(X_\mathrm{interior} \leq t)$')
@@ -681,6 +687,41 @@ def final_cdf_comparison(obs, var_pair, traj_cols=['replicate'],
     ax.set_xlim([0, T])
     ax.set_ylim([-0.1, 1.1])
     _legend_from_entries(ax, legend_entries)
+    return fig
+
+
+def final_pdf_comparison(obs, var_pair, traj_cols=['replicate'],
+                         ext_bins='auto'):
+    fig, ax = plt.subplots(
+            figsize=figure_size['full column'],
+            constrained_layout=True
+        )
+
+    legend_entries = _init_entries(var_pair)
+    window_sf = fw.window_sf(obs, traj_cols)
+    T = obs.window_size.max()
+    t = np.linspace(0, T, 101)
+    for var in var_pair:
+        exterior = _ext_from_obs(obs, var.name)
+        interior, window_sizes = _int_win_from_obs(obs, var.name)
+        bin_centers, final_est = fw.ecdf_combined(
+            exterior, interior, window_sizes, window_sf=window_sf
+        )
+
+        line, = ax.plot(t, var.pdf(t), ls=var.linestyle,
+                        c='k', label='True $f_X(t)$')
+        legend_entries[var.name].append(line)
+        X, Y = stats.bars_given_discrete_cdf(bin_centers, final_est)
+        line, = ax.plot(X, Y, c=var.color,
+                        label='Combined estimator', alpha=0.8)
+        legend_entries[var.name].append(line)
+    ax.set_xlabel('time')
+    ax.set_ylabel(r'$P(X_\mathrm{interior} = t)$')
+    ax.set_xlim([0, T])
+    ylim = np.max([var.scaled_ylim(T) for var in var_pair])
+    ax.set_ylim([-0.1, ylim])
+    _legend_from_entries(ax, legend_entries)
+    return fig
 
 
 def _multi_t_waits(var_pair, window_size, N_traj):

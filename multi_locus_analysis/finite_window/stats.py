@@ -207,7 +207,9 @@ def ecdf_windowed(
         dx = np.mean(np.diff(times_allowed))
         times_allowed = np.insert(times_allowed, 0, times_allowed[0] - dx)
     elif pad_left_at_x is not None:
-        if not np.isclose(times_allowed[0], pad_left_at_x):
+        # remove this test for now, as weibull/pareto variables can generate
+        # VERY small waits
+        # if not np.isclose(times_allowed[0], pad_left_at_x):
             if times_allowed[0] < pad_left_at_x:
                 warnings.warn('pad_left_at_x not left of x in ecdf_windowed! '
                               'Ignoring...')
@@ -264,6 +266,9 @@ def ecdf_windowed(
         cdf[cdf_i] = full_cdf[i]
     if normalize:
         cdf = cdf/cdf[-1]
+    # some heavy-tailed dists can generate VERY small times, (isclose to 0)
+    if pad_left_at_x == 0:
+        cdf[0] = 0
     return times_allowed, cdf
 
 

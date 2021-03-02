@@ -410,8 +410,8 @@ def _example_lambda_fit(V_T_N):
 #     required_for_ext = min_obs / exterior_per_traj
 #     interior_per_traj =
 
-def bootstrap_exp_fit_error(N_boot=1000, N_traj=1000, N_lam=31, T=1):
-    lambdas_uniq = np.logspace(-2, 1, N_lam)
+def bootstrap_exp_fit_error(N_boot=1000, N_traj=1000, N_lam=41, T=1):
+    lambdas_uniq = np.logspace(-2, 2, N_lam)
     lambdas = np.random.choice(lambdas_uniq, size=(N_boot,2))
     Ts = T*np.ones((N_boot,))
     N_trajs = (N_traj*np.ones((N_boot,))).astype(int)
@@ -426,6 +426,7 @@ def bootstrap_exp_fit_error(N_boot=1000, N_traj=1000, N_lam=31, T=1):
     V_T_Ns = list(zip(lambdas, Ts, N_trajs))
     with Pool(processes=cpu_count()) as pool:
         df = pd.concat(pool.map(_example_lambda_fit, V_T_Ns))
+    df['N_traj'] = N_traj
     return df
 
 
@@ -525,7 +526,6 @@ def _example_pareto_alpha(V_T_N):
     )
     df.columns = ['true', 'mle-interior', 'mle-uncensored', 'fit-interior',
                  'fit-corrected', 'fit-kaplan', 'fit-uncensored']
-
     return df
 
 
