@@ -188,8 +188,7 @@ class Variable:
             for arg in rv.args[1:]:
                 name += ', ' + arg
             name += ')'
-        name[0] = name[0].upper()
-        return name
+        return name[0].upper() + name[1:]
 
     def __init__(self, rv, **kwargs):
         """

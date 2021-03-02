@@ -22,6 +22,12 @@ from .moments import pos_to_all_vel
 from ..util import mark_code_only
 
 
+def power_law_slope_mle(x, xmin, N=None):
+    if N is None:
+        N = len(x)
+    return 1 + N / np.sum(np.log(x/xmin))
+
+
 def ecdf(y, y_allowed=None, auto_pad_left=False, pad_left_at_x=None):
     """Compute empirical cumulative distribution function (eCDF) from data.
 

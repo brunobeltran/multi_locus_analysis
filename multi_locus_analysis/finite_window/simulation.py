@@ -1,7 +1,10 @@
 from multiprocessing import Pool, cpu_count
 
+import lifelines
 import numpy as np
 import pandas as pd
+import scipy.stats
+from scipy.stats import expon
 
 import bruno_util
 import bruno_util.random
@@ -280,7 +283,10 @@ def bootstrap_int_error(var_pair, T, N_boot=1000, N_traj_per_boot=1000,
     derr_t = np.diff(err_t)
     err_ave = {var.name: np.zeros_like(err_t) for var in var_pair}
     err_std = {var.name: np.zeros_like(err_t) for var in var_pair}
-    err_l2 = {var.name: 0 for var in var_pair}
+    l2_ave = {var.name: 0 for var in var_pair}
+    l2_std = {var.name: 0 for var in var_pair}
+    linf_ave = {var.name: 0 for var in var_pair}
+    linf_std = {var.name: 0 for var in var_pair}
 
     def accumulate_ave_std(res):
         accumulate_ave_std.N += 1
@@ -290,7 +296,16 @@ def bootstrap_int_error(var_pair, T, N_boot=1000, N_traj_per_boot=1000,
             err_std[name] += delta*(res[name] - err_ave[name])
             # separately, keep running average of l2 error
             res_mid = (res[name][1:]**2 + res[name][:-1]**2) / 2
-            err_l2[name] += np.sum(np.sqrt(res_mid * derr_t))
+            l2 = np.sum(np.sqrt(res_mid * derr_t))
+            delta = l2 - l2_ave[name]
+            l2_ave[name] += delta/accumulate_ave_std.N
+            l2_std[name] += delta*(l2 - l2_ave[name])
+            # separately, keep running average of l^\inf error
+            linf = np.max(np.abs(res[name]))
+            delta = linf - linf_ave[name]
+            linf_ave[name] += delta/accumulate_ave_std.N
+            linf_std[name] += delta*(linf - linf_ave[name])
+
     accumulate_ave_std.N = 0
 
     pickleable_var_pair = tuple((var.name, var.rv) for var in var_pair)
@@ -311,4 +326,219 @@ def bootstrap_int_error(var_pair, T, N_boot=1000, N_traj_per_boot=1000,
     for name in err_std:
         err_std[name] /= accumulate_ave_std.N - 1
 
-    return err_t, err_ave, err_std, err_l2
+    return err_t, err_ave, err_std, l2_ave, l2_std, linf_ave, linf_std
+
+
+def _mean_from_exp_cdf(x, cdf):
+    y = np.log(1 - cdf)
+    i = np.isfinite(x) & np.isfinite(y)
+    return -1/scipy.stats.linregress(x[i], y[i]).slope
+
+
+def _example_lambda_fit(V_T_N):
+    import multi_locus_analysis.finite_window as fw
+    import multi_locus_analysis.plotting.finite_window as fplt
+    lambdas, T, N_traj = V_T_N
+    var_pair = [
+        fplt.Variable(expon(scale=lam), name=f"Exp({lam})")
+        for lam in lambdas
+    ]
+    sim = fw.ab_window(
+        [var.rvs for var in var_pair],
+        offset=-100*np.sum([var.mean() for var in var_pair]),
+        window_size=T,
+        num_replicates=N_traj,
+        states=[var.name for var in var_pair]
+    )
+    obs = fw.sim_to_obs(sim)
+
+    mean_est = fw.average_lifetime(obs)
+    true_mean = {var.name: var.mean() for var in var_pair}
+    naive_slope_est = {}
+    correct_slope_est = {}
+    kaplan_slope_est = {}
+    uncensored_baseline = {}
+    for var in var_pair:
+        # naive
+        interior, windows = fplt._int_win_from_obs(obs, var.name)
+        try:
+            x_int, cdf_int = fw.ecdf_windowed(interior, windows)
+            naive_slope_est[var.name] = _mean_from_exp_cdf(x_int, cdf_int)
+        except:
+            naive_slope_est[var.name] = np.nan
+        # corrected
+        exterior = fplt._ext_from_obs(obs, var.name)
+        try:
+            bin_centers, final_cdf = fw.ecdf_combined(exterior, interior, T)
+            correct_slope_est[var.name] = _mean_from_exp_cdf(bin_centers, final_cdf)
+        except:
+            correct_slope_est[var.name] = np.nan
+        # kaplan
+        times = np.concatenate([interior, exterior])
+        is_interior = np.concatenate(
+            [np.ones_like(interior), np.zeros_like(exterior)]
+        ).astype(bool)
+        try:
+            kmf = lifelines.KaplanMeierFitter() \
+                    .fit(times, event_observed=is_interior)
+            x_kap = kmf.cumulative_density_.index.values
+            cdf_kap = kmf.cumulative_density_.values.flatten()
+            kaplan_slope_est[var.name] = _mean_from_exp_cdf(x_kap, cdf_kap)
+        except:
+            kaplan_slope_est[var.name] = np.nan
+        # uncensored baseline
+        num_obs = len(interior)
+        try:
+            x_unc, cdf_unc = _mla_stats.ecdf(var.rvs(size=(num_obs,)),
+                                            pad_left_at_x=0)
+            uncensored_baseline[var.name] = _mean_from_exp_cdf(x_unc, cdf_unc)
+        except:
+            uncensored_baseline[var.name] = np.nan
+    df = pd.concat(map(pd.Series,
+        [true_mean, correct_slope_est, naive_slope_est,
+        mean_est, kaplan_slope_est, uncensored_baseline]
+    ), axis=1)
+    df.columns = ['true', 'corrected', 'naive', 'count-based', 'kaplan',
+                  'uncensored']
+    return df
+
+
+# def _choose_N_traj(means, min_obs=100, T=1):
+#     # if mean is *too* large, then we have to beware of seeing enough total
+#     # exterior times
+#     exterior_per_traj = 1/np.sum(means) * T
+#     required_for_ext = min_obs / exterior_per_traj
+#     interior_per_traj =
+
+def bootstrap_exp_fit_error(N_boot=1000, N_traj=1000, N_lam=31, T=1):
+    lambdas_uniq = np.logspace(-2, 1, N_lam)
+    lambdas = np.random.choice(lambdas_uniq, size=(N_boot,2))
+    Ts = T*np.ones((N_boot,))
+    N_trajs = (N_traj*np.ones((N_boot,))).astype(int)
+    # # another approach might be to just sample less the ridiculous ones
+    # N_boot = np.linspace(min_boot, max_boot, N_lam).astype(int)
+    # N_tot = np.sum(N_boot)
+    # lambdas = np.zeros((N_tot,))
+    # j = 0
+    # for i, N in enumerate(N_boot):
+    #     lambdas[j:j+N] = lambdas_uniq[i]
+    #     j += N
+    V_T_Ns = list(zip(lambdas, Ts, N_trajs))
+    with Pool(processes=cpu_count()) as pool:
+        df = pd.concat(pool.map(_example_lambda_fit, V_T_Ns))
+    return df
+
+
+def _alpha_from_cdf(x, cdf, xmin):
+    xlog = np.log10(x)
+    ylog = np.log10(1 - cdf)
+    i = (x > xmin) & np.isfinite(xlog) & np.isfinite(ylog)
+    # -slope, and +1 because cdf not pdf
+    return 1 - scipy.stats.linregress(xlog[i], ylog[i]).slope
+
+
+def _example_pareto_alpha(V_T_N):
+    import multi_locus_analysis.finite_window as fw
+    import multi_locus_analysis.plotting.finite_window as fplt
+
+    # unpack parameters first
+    (betas, xmin), T, N_traj = V_T_N
+    var_pair = [
+        fplt.Variable(scipy.stats.pareto(beta, scale=xmin),
+                      name=f'Pareto({beta:0.3g})')
+        for beta in betas
+    ]
+    # run one simulation
+    sim = fw.ab_window(
+        [var.rvs for var in var_pair],
+        offset=-100*np.sum([var.mean() for var in var_pair]),
+        window_size=T,
+        num_replicates=N_traj,
+        states=[var.name for var in var_pair]
+    )
+    obs = fw.sim_to_obs(sim)
+
+    # now extract alpha several different ways
+    true_alpha = {var.name: var.args[0] + 1 for var in var_pair}
+    mle_interior_est = {}
+    mle_uncensored_baseline = {}
+    fit_interior = {}
+    fit_corrected = {}
+    fit_kaplan = {}
+    fit_uncensored_baseline = {}
+    for var in var_pair:
+        # mle, interior
+        try:
+            interior, windows = fplt._int_win_from_obs(obs, var.name)
+            num_obs = len(interior)
+            mle_interior_est[var.name] = _mla_stats.power_law_slope_mle(
+                interior, xmin, num_obs)
+        except:
+            mle_interior_est[var.name] = np.nan
+        # fit, interior
+        try:
+            x_int, cdf_int = fw.ecdf_windowed(interior, windows)
+            fit_interior[var.name] = _alpha_from_cdf(x_int, cdf_int, xmin)
+        except:
+            fit_interior[var.name] = np.nan
+        # fit, corrected
+        try:
+            exterior = fplt._ext_from_obs(obs, var.name)
+            bin_centers, final_cdf = fw.ecdf_combined(exterior, interior, T)
+            fit_corrected[var.name] = _alpha_from_cdf(bin_centers, final_cdf, xmin)
+        except:
+            fit_corrected[var.name] = np.nan
+        # fit, kaplan
+        try:
+            times = np.concatenate([interior, exterior])
+            is_interior = np.concatenate(
+                [np.ones_like(interior), np.zeros_like(exterior)]
+            ).astype(bool)
+            kmf = lifelines.KaplanMeierFitter() \
+                .fit(times, event_observed=is_interior)
+            x_kap = kmf.cumulative_density_.index.values
+            cdf_kap = kmf.cumulative_density_.values.flatten()
+            fit_kaplan[var.name] = _alpha_from_cdf(x_kap, cdf_kap, xmin)
+        except:
+            fit_kaplan[var.name] = np.nan
+        # mle, uncensored baseline
+        try:
+            uncensored_obs = var.rvs(size=(num_obs,))
+            mle_uncensored_baseline[var.name] = _mla_stats.power_law_slope_mle(
+                uncensored_obs, xmin, num_obs)
+        except:
+            mle_uncensored_baseline[var.name] = np.nan
+        # fit, uncensored baseline
+        try:
+            x_unc, cdf_unc = _mla_stats.ecdf(uncensored_obs, pad_left_at_x=0)
+            fit_uncensored_baseline[var.name] = \
+                _alpha_from_cdf(x_unc, cdf_unc, xmin)
+        except:
+            fit_uncensored_baseline[var.name] = np.nan
+    df = pd.concat(
+        map(
+            pd.Series,
+            [true_alpha, mle_interior_est, mle_uncensored_baseline,
+            fit_interior, fit_corrected, fit_kaplan,
+            fit_uncensored_baseline]
+        ), axis=1
+    )
+    df.columns = ['true', 'mle-interior', 'mle-uncensored', 'fit-interior',
+                 'fit-corrected', 'fit-kaplan', 'fit-uncensored']
+
+    return df
+
+
+def bootstrap_alpha_fit_error(N_boot=1000, N_traj=1000, xmin=0.1, T=1):
+    betas_uniq = np.linspace(1, 2, 21)[1:]
+    # # incantation to repeat each betas_uniq N_boot times
+    # betas = np.tile(betas_uniq, (N_boot, 1)).T.flatten()
+    betas = np.random.choice(betas_uniq, size=(N_boot,2))
+    Ts = T*np.ones((N_boot,))
+    N_trajs = (N_traj*np.ones_like(Ts)).astype(int)
+    params = zip(betas, xmin*np.ones_like(Ts))
+    V_T_Ns = list(zip(params, Ts, N_trajs))
+    with Pool(processes=cpu_count()) as pool:
+        df = pd.concat(pool.map(_example_pareto_alpha, V_T_Ns))
+    df['N_traj'] = N_traj
+    return df
