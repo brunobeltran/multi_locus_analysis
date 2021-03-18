@@ -2,19 +2,19 @@
 
 .. currentmodule:: multi_locus_analysis
 
+.. default-role:: py:obj
+
 Trajectory Statistics
 =====================
-
-All utilities for calculating moments of a trajectory (i.e. statistics of
-particle motion), are contained within the :mod:`multi_locus_analysis.stats`
-module.
-
-This statement is made more precise in that module's docstring:
 
 :mod:`multi_locus_analysis.stats`
 ---------------------------------
     .. automodule:: multi_locus_analysis.stats
         :noindex:
+
+Because the bulk of the distributional helper tools are demonstrated clearly in
+the `Finite Window tutorial <finite_window.html>`_, we focus on an example of how to use the moment-based
+statistical methods here.
 
 Tutorial
 --------
@@ -219,16 +219,11 @@ stage ``t0``) by simply running
     >>> from multi_locus_analysis import plotting
     >>> plotting.cvv_plot_sized(cvv.loc['t0'].reset_index(), data_deltas=30*np.arange(1, 5))
 
-.. note::
-
-    There should be a plot here but it has not been inserted yet pending come
-    organizational decisions.
-
 where we ignore larger values of ``delta`` because the amount of data available
 for averaging decreases to a single point as ``delta`` approaches the length of
 the observation.
 
-Notice how the correlation decays as $\delta$ increases. For details on why
+Notice how the correlation decays as :math:`\delta` increases. For details on why
 this means that the correlation is actually increasing as delta increases,
 please see the paper in preparation (Newman, Beltran, and Calhoon et al).
 
@@ -237,4 +232,3 @@ Notes
 
 For a listing of all functions exposed
 by the :mod:`stats` module, see the :ref:`API reference <api>` section.
-

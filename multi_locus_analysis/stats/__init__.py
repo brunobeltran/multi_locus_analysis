@@ -1,3 +1,11 @@
+"""
+Statistical methods for trajectory analysis.
+
+Moment-based calculations can found in the `multi_locus_analysis.stats.moments`
+submodule, and helper functions for dealing with distributional data can be
+found in `multi_locus_analysis.stats.distributions`.
+"""
+
 import numpy as np
 import scipy.spatial
 

@@ -529,6 +529,9 @@ def _example_pareto_alpha(V_T_N):
     return df
 
 
+#TODO reimplement _write_and_concat...
+
+
 def bootstrap_alpha_fit_error(N_boot=1000, N_traj=1000, xmin=0.1, T=1):
     betas_uniq = np.linspace(1, 2, 21)[1:]
     # # incantation to repeat each betas_uniq N_boot times

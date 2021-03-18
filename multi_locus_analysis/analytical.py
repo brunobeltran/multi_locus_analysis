@@ -1,4 +1,9 @@
-"""For computing analytical results relevant to diffusing loci"""
+"""
+For computing analytical results relevant to diffusing loci.
+
+When possible, prefer the functions in the WLCSIM module instead, as they have
+been more recently tested.
+"""
 from bruno_util.mittag_leffler import ml as mittag_leffler
 
 import numpy as np

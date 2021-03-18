@@ -161,20 +161,17 @@ In other words, in log-log space, the MSD will be a line with slope
     the molecules that surround it.
 
 If we instead consider the diffusion of a polymer instead of a point, we get a
-new equation of motion.
+new equation of motion. See :cite:`weber2010a` for a complete derivation.
 
-TODO: add details on polymer MSD here.
-
-This means that for a point on the polymer, the observed MSD in log-log space
-will be a line with slope :math:`\alpha/2` for short time scales. This persists
-until the terminal relaxation time :math:`t_R = [N^2b^2\xi/(k_BT)]^{1/\alpha}`
-of the polymer, which is the time scale at which the polymer as a whole can be
-said to be diffusing (in other words, the time scale at which the diffusion of
-the center of mass of the polymer begins to dominate over the internal
-fluctuations of the polymer). At times scales longer than the terminal
-relaxation time, the MSD will be a line with slope :math:`\alpha`, and the
-polymer as a whole will diffuse as if experiencing an effective viscosity of
-:math:`N\xi`.
+In short, what we find is that the observed MSD in log-log space will be a line
+with slope :math:`\alpha/2` for short time scales. This persists until the
+terminal relaxation time :math:`t_R = [N^2b^2\xi/(k_BT)]^{1/\alpha}` of the
+polymer, which is the time scale at which the polymer as a whole can be said to
+be diffusing (in other words, the time scale at which the diffusion of the
+center of mass of the polymer begins to dominate over the internal fluctuations
+of the polymer). At times scales longer than the terminal relaxation time, the
+MSD will be a line with slope :math:`\alpha`, and the polymer as a whole will
+diffuse as if experiencing an effective viscosity of :math:`N\xi`.
 
 .. plot::
     :context: close-figs
@@ -198,7 +195,7 @@ the finite number of Rouse modes included when numerically evaluating the MSD.
 The Rouse polymer is a "fractal" model, so the proper solution to the equations
 of motion presented above has an MSD whose short-time behavior scales as
 :math:`t^{\alpha/2}` indefinitely. The log of the number of modes included
-(optional arg `num_modes` in the call) corresponds exactly to the number of
+(optional arg ``num_modes`` in the call) corresponds exactly to the number of
 orders of magnitude that will have the correct scaling in the calculated MSD.
 
 However, this drop-off is also instructive, because this fractal behavior is exactly
@@ -237,22 +234,18 @@ whole), we expect to see the MSD curve cut off at a different location depending
 on how the confinement time scale compares to the terminal relaxation time of
 the chromosome (or chromosomes, if they are linked together).
 
-TODO: make plot showing three options (plateau before polymer regime, before
-terminal relaxation time, and after terminal relaxation time).
-
-As can be seen from the plot above, even for this simplest possible model of
-Rouse polymer motion, simply fitting MSD curves with straight lines in log-log
-space can lead to extremely misleading results, due to the non-linear nature of
-the MSD curve itself. Therefore, it is important to establish the confinement
-diameter, and terminal relaxation time of the polymer at a minimum, before
-trying to fit a raw MSD to extract, for example, a value for :math:`\alpha`.
+Hopefully it can be surmised from this discussion that even for this simplest
+possible model of Rouse polymer motion, simply fitting MSD curves with straight
+lines in log-log space can lead to extremely misleading results, due to the
+non-linear nature of the MSD curve itself. Therefore, it is important to
+establish the confinement diameter, and terminal relaxation time of the polymer
+at a minimum, before trying to fit a raw MSD to extract, for example, a value
+for :math:`\alpha`.
 
 .. _analytical-disps-hist:
 
 Displacement Distributions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-TODO: document gaussianity vs laplace distributions of dispalcements here.
 
 The `paper of Lampo et al
 <http://stanford.edu/~ajspakow/publications/LSBWS-celldiff.pdf>`_ is extremely
@@ -263,11 +256,13 @@ displacements.
 
 A more general overview of the combined effects of intra-cellular and
 inter-cellular heterogeneity can be found in the `later paper by Stylianidou and
-Lampo <https://journals.aps.org/pre/abstract/10.1103/PhysRevE.97.062410>_`.
+Lampo <https://journals.aps.org/pre/abstract/10.1103/PhysRevE.97.062410>`_.
 
-This section will eventually summarize how these issues appear in practice,
-where the distribution of diffusivities is often not as clean as in the data
-that Lampo et al present.
+In short, while both the fractional and classical Rouse models assume Gaussian
+step sizes between time steps, we observe significantly heavier tails in the
+displacement distributions *in vivo*. The two papers above discuss how this
+might be the product of there being significant heterogeneity in the diffusivity
+of the polymer.
 
 .. _analytical-velocity-correlation:
 
@@ -371,17 +366,9 @@ Because :math:`E_{\alpha,1}(x)\to 0` as :math:`x\to-\infty`, and since
 :math:`k_p \propto p^2`, the summation converges fairly quickly. However, using
 the numerical values for :math:`\phi_p(n_i)` tends to cause numerical
 instabilities. Instead, we consider several limiting cases where properties of
-the cosine function allow us to simplify the expression.
-
-Firstly, the polymer locus's autocorrelation function, i.e. :math:`n_1 = n_2`
-is just
-
-.. math::
-
-    TODO
-
-The unnormalized version of this equation can be
-found in Eq. 33 of `(Weber & Spakowitz
+the cosine function allow us to simplify the expression. For example, if we
+simply want to compute the polymer locus's autocorrelation function, then
+:math:`n_1 = n_2`, which gives us Eq. 33 of `(Weber & Spakowitz
 Physical Review E, 2010)
 <https://journals.aps.org/pre/pdf/10.1103/PhysRevE.82.011913>`_.
 
@@ -425,7 +412,7 @@ Velocity Cross-Correlation "Trick"
 Let us consider the velocity autocorrelation of the distance
 between two monomers :math:`C_{\Delta{}V}^{(\delta)}`, where
 :math:`\Delta{}V^{(\delta)}(t) =
-\Delta X(t + \delta) - \Delta X(t)` and `\Delta X(t) = X_2(t) - X_1(t)`.
+\Delta X(t + \delta) - \Delta X(t)` and :math:`\Delta X(t) = X_2(t) - X_1(t)`.
 
 This quantity has the useful property of being drift-free. That is, an arbitrary
 rotation and translation can be applied to the sample at each time without
@@ -438,5 +425,7 @@ It is simple enough to notice that this is simply equal to
     C_{\Delta{}V}^{(\delta)}(t, \Delta n) = C_{vv}^{(\delta)}(t, \Delta n) -
     2*C_{v}^{(\delta)}(t)
 
-where the monomer velocity autocorrelation :math:`C_{v}^{(\delta)}(t)` and the velocity cross correlation between two monomers :math:`C_{vv}^{(\delta)}` is as above.
+where the monomer velocity autocorrelation :math:`C_{v}^{(\delta)}(t)` and the
+velocity cross correlation between two monomers :math:`C_{vv}^{(\delta)}` is as
+above.
 

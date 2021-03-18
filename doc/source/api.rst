@@ -17,6 +17,8 @@ Trajectory statistics
     :template: autosummary_module.rst
 
     stats
+    stats.moments
+    stats.distributions
 
 .. _finite_window_api:
 
@@ -28,6 +30,9 @@ Finite window correction
     :template: autosummary_module.rst
 
     finite_window
+    finite_window.stats
+    finite_window.simulation
+    finite_window.munging
 
 .. _plotting_api:
 
