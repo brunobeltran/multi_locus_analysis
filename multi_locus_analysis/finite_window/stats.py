@@ -209,7 +209,7 @@ def ecdf_windowed(
     elif pad_left_at_x is not None:
         # remove this test for now, as weibull/pareto variables can generate
         # VERY small waits
-        # if not np.isclose(times_allowed[0], pad_left_at_x):
+        if not times_allowed[0] == pad_left_at_x:
             if times_allowed[0] < pad_left_at_x:
                 warnings.warn('pad_left_at_x not left of x in ecdf_windowed! '
                               'Ignoring...')
